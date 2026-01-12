@@ -1,12 +1,43 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { Sidebar } from '@/components/Sidebar';
+import { Dashboard } from '@/components/Dashboard';
+import { POSView } from '@/components/POSView';
+import { OrdersView } from '@/components/OrdersView';
+import { TablesView } from '@/components/TablesView';
+import { MenuManagement } from '@/components/MenuManagement';
+import { ReportsView } from '@/components/ReportsView';
+import { SettingsView } from '@/components/SettingsView';
 
 const Index = () => {
+  const [activeView, setActiveView] = useState('dashboard');
+
+  const renderView = () => {
+    switch (activeView) {
+      case 'dashboard':
+        return <Dashboard />;
+      case 'pos':
+        return <POSView />;
+      case 'orders':
+        return <OrdersView />;
+      case 'tables':
+        return <TablesView />;
+      case 'menu':
+        return <MenuManagement />;
+      case 'reports':
+        return <ReportsView />;
+      case 'settings':
+        return <SettingsView />;
+      default:
+        return <Dashboard />;
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="flex h-screen bg-background overflow-hidden">
+      <Sidebar activeView={activeView} onViewChange={setActiveView} />
+      <main className="flex-1 overflow-y-auto">
+        {renderView()}
+      </main>
     </div>
   );
 };
