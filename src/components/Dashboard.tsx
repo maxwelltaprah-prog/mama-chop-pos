@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { 
   TrendingUp, 
   ShoppingBag, 
@@ -45,9 +46,9 @@ const statCards = [
   },
 ];
 
-export function Dashboard() {
+export const Dashboard = forwardRef<HTMLDivElement>((_, ref) => {
   return (
-    <div className="p-6 space-y-6 animate-fade-in">
+    <div ref={ref} className="p-4 lg:p-6 space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -222,4 +223,6 @@ export function Dashboard() {
       </Card>
     </div>
   );
-}
+});
+
+Dashboard.displayName = 'Dashboard';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sidebar } from '@/components/Sidebar';
+import { AppLayout } from '@/components/layout/AppLayout';
 import { Dashboard } from '@/components/Dashboard';
 import { POSView } from '@/components/POSView';
 import { OrdersView } from '@/components/OrdersView';
@@ -33,12 +33,9 @@ const Index = () => {
   };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <Sidebar activeView={activeView} onViewChange={setActiveView} />
-      <main className="flex-1 overflow-y-auto">
-        {renderView()}
-      </main>
-    </div>
+    <AppLayout activeView={activeView} onViewChange={setActiveView}>
+      {renderView()}
+    </AppLayout>
   );
 };
 
