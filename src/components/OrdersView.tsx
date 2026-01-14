@@ -1,12 +1,13 @@
 import { useState, forwardRef } from 'react';
-import { Clock, Check, ChefHat, UtensilsCrossed, Package, Search, Filter } from 'lucide-react';
-import { sampleOrders, formatCurrency, getStatusColor, getPaymentIcon, type OrderStatus } from '@/lib/data';
+import { Clock, Check, ChefHat, UtensilsCrossed, Package, Search, Printer, Loader2 } from 'lucide-react';
+import { formatCurrency, getStatusColor, getPaymentIcon } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { useOrders, useUpdateOrderStatus, OrderStatus, OrderWithItems } from '@/hooks/useOrders';
+import { printReceipt } from '@/lib/printReceipt';
 
 const statusSteps: { status: OrderStatus; label: string; icon: React.ElementType }[] = [
   { status: 'pending', label: 'Pending', icon: Clock },
@@ -25,26 +26,21 @@ const filterTabs: { id: string; label: string; status?: OrderStatus }[] = [
 
 export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
   const [activeTab, setActiveTab] = useState('all');
-  const [orders, setOrders] = useState(sampleOrders);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const { data: orders = [], isLoading } = useOrders();
+  const updateStatus = useUpdateOrderStatus();
 
   const filteredOrders = orders.filter(order => {
     const matchesTab = activeTab === 'all' || order.status === activeTab;
     const matchesSearch = 
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.tableNumber?.toString().includes(searchQuery);
+      order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customer_name?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
-  const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
-    setOrders(prev => prev.map(o => 
-      o.id === orderId ? { ...o, status: newStatus } : o
-    ));
-    toast.success(`Order ${orderId} updated to ${newStatus}`);
-  };
-
-  const getTimeAgo = (date: Date): string => {
+  const getTimeAgo = (dateStr: string): string => {
+    const date = new Date(dateStr);
     const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
     if (minutes < 1) return 'Just now';
     if (minutes === 1) return '1 min ago';
@@ -52,13 +48,25 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
     return `${Math.floor(minutes / 60)}h ago`;
   };
 
-  const getNextStatus = (current: OrderStatus): OrderStatus | null => {
+  const getNextStatus = (current: string): OrderStatus | null => {
     const currentIndex = statusSteps.findIndex(s => s.status === current);
     if (currentIndex < statusSteps.length - 1) {
       return statusSteps[currentIndex + 1].status;
     }
     return null;
   };
+
+  const handlePrint = (order: OrderWithItems) => {
+    printReceipt({ order });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div ref={ref} className="p-4 lg:p-6 space-y-6 animate-fade-in">
@@ -79,7 +87,7 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
             />
           </div>
           <Badge variant="secondary" className="w-fit text-base px-4 py-2 self-start">
-            {orders.filter(o => o.status !== 'completed').length} Active Orders
+            {orders.filter(o => o.status !== 'completed' && o.status !== 'served').length} Active Orders
           </Badge>
         </div>
       </div>
@@ -114,15 +122,14 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
             <CardHeader className="pb-3 bg-muted/30">
               <div className="flex items-start justify-between">
                 <div>
-                  <CardTitle className="text-lg font-display">{order.id}</CardTitle>
+                  <CardTitle className="text-lg font-display">{order.order_number}</CardTitle>
                   <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                    <span>{order.type === 'dine-in' ? '🍽️' : order.type === 'takeaway' ? '📦' : '🚴'}</span>
-                    <span className="capitalize">{order.type}</span>
-                    {order.tableNumber && <span>• Table {order.tableNumber}</span>}
-                    {order.customerName && <span>• {order.customerName}</span>}
+                    <span>{order.order_type === 'dine-in' ? '🍽️' : order.order_type === 'takeaway' ? '📦' : '🚴'}</span>
+                    <span className="capitalize">{order.order_type}</span>
+                    {order.customer_name && <span>• {order.customer_name}</span>}
                   </div>
                 </div>
-                <Badge className={cn('capitalize font-semibold', getStatusColor(order.status))}>
+                <Badge className={cn('capitalize font-semibold', getStatusColor(order.status as any))}>
                   {order.status}
                 </Badge>
               </div>
@@ -130,14 +137,14 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
             <CardContent className="space-y-4 pt-4">
               {/* Order Items */}
               <div className="space-y-2 max-h-32 overflow-y-auto">
-                {order.items.map((orderItem, i) => (
+                {order.order_items.map((orderItem, i) => (
                   <div key={i} className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
-                      {orderItem.quantity}x {orderItem.item.name}
+                      {orderItem.quantity}x {orderItem.menu_items?.name || 'Unknown Item'}
                       {orderItem.size && ` (${orderItem.size})`}
                     </span>
                     <span className="font-medium">
-                      {formatCurrency(orderItem.item.price * orderItem.quantity)}
+                      {formatCurrency(Number(orderItem.total_price))}
                     </span>
                   </div>
                 ))}
@@ -150,13 +157,13 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="w-4 h-4" />
-                  {getTimeAgo(order.createdAt)}
+                  {getTimeAgo(order.created_at)}
                 </div>
                 <div className="flex items-center gap-2">
-                  {order.paymentMethod && (
-                    <span className="text-lg">{getPaymentIcon(order.paymentMethod)}</span>
+                  {order.payment_method && (
+                    <span className="text-lg">{getPaymentIcon(order.payment_method as any)}</span>
                   )}
-                  <span className="font-bold text-lg">{formatCurrency(order.total)}</span>
+                  <span className="font-bold text-lg">{formatCurrency(Number(order.total))}</span>
                 </div>
               </div>
 
@@ -191,26 +198,46 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
                 })}
               </div>
 
-              {/* Action Button */}
-              {getNextStatus(order.status) && (
-                <Button 
-                  variant="gradient" 
-                  className="w-full"
-                  onClick={() => updateOrderStatus(order.id, getNextStatus(order.status)!)}
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrint(order)}
+                  className="flex-1"
                 >
-                  <Check className="w-4 h-4 mr-2" />
-                  Mark as {statusSteps.find(s => s.status === getNextStatus(order.status))?.label}
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print
                 </Button>
-              )}
-              {!getNextStatus(order.status) && order.status === 'served' && (
-                <Button 
-                  variant="outline" 
-                  className="w-full text-success border-success hover:bg-success/10"
-                >
-                  <Check className="w-4 h-4 mr-2" />
-                  Order Complete
-                </Button>
-              )}
+                {getNextStatus(order.status) && (
+                  <Button 
+                    variant="gradient" 
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => updateStatus.mutate({ id: order.id, status: getNextStatus(order.status)! })}
+                    disabled={updateStatus.isPending}
+                  >
+                    {updateStatus.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4 mr-2" />
+                        {statusSteps.find(s => s.status === getNextStatus(order.status))?.label}
+                      </>
+                    )}
+                  </Button>
+                )}
+                {!getNextStatus(order.status) && order.status === 'served' && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="flex-1 text-success border-success hover:bg-success/10"
+                  >
+                    <Check className="w-4 h-4 mr-2" />
+                    Complete
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
