@@ -1,11 +1,10 @@
-import { useState } from 'react';
-import { Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, X, User, MapPin, Check, Phone } from 'lucide-react';
-import { menuItems, categories, formatCurrency, type MenuItem, type OrderType, type PaymentMethod } from '@/lib/data';
+import { useState, useRef } from 'react';
+import { Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, X, User, MapPin, Check, Phone, Printer, Loader2 } from 'lucide-react';
+import { formatCurrency } from '@/lib/data';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -23,9 +22,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useMenuItems, MenuItemRow } from '@/hooks/useMenuItems';
+import { useTables } from '@/hooks/useTables';
+import { useCreateOrder } from '@/hooks/useOrders';
+import { printReceipt, generateReceiptHTML } from '@/lib/printReceipt';
+import { categories } from '@/lib/data';
+import { Json } from '@/integrations/supabase/types';
+
+type OrderType = 'dine-in' | 'takeaway' | 'delivery';
+type PaymentMethod = 'cash' | 'mtn-momo' | 'vodafone-cash' | 'airteltigo';
 
 interface CartItem {
-  item: MenuItem;
+  item: MenuItemRow;
   quantity: number;
   size?: string;
   notes?: string;
@@ -35,16 +43,19 @@ export function POSView() {
   const [selectedCategory, setSelectedCategory] = useState('main');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderType, setOrderType] = useState<OrderType>('dine-in');
-  const [tableNumber, setTableNumber] = useState<string>('');
+  const [tableId, setTableId] = useState<string>('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+
+  const { data: menuItems = [], isLoading: menuLoading } = useMenuItems();
+  const { data: tables = [] } = useTables();
+  const createOrder = useCreateOrder();
 
   const filteredItems = menuItems.filter(item => item.category === selectedCategory);
 
-  const addToCart = (item: MenuItem) => {
+  const addToCart = (item: MenuItemRow) => {
     if (!item.available) return;
     
     setCart(prev => {
@@ -80,13 +91,13 @@ export function POSView() {
 
   const clearCart = () => {
     setCart([]);
-    setTableNumber('');
+    setTableId('');
     setCustomerName('');
     setCustomerPhone('');
     setSelectedPayment(null);
   };
 
-  const subtotal = cart.reduce((sum, c) => sum + (c.item.price * c.quantity), 0);
+  const subtotal = cart.reduce((sum, c) => sum + (Number(c.item.price) * c.quantity), 0);
   const tax = subtotal * 0.05;
   const total = subtotal + tax;
 
@@ -99,8 +110,8 @@ export function POSView() {
     if (!selectedPayment) return;
     
     // Validate order details
-    if (orderType === 'dine-in' && !tableNumber) {
-      toast.error('Please enter a table number');
+    if (orderType === 'dine-in' && !tableId) {
+      toast.error('Please select a table');
       return;
     }
     if (orderType !== 'dine-in' && !customerName) {
@@ -108,31 +119,71 @@ export function POSView() {
       return;
     }
 
-    setIsProcessing(true);
-    
-    // Simulate processing
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast.success('Order placed successfully!', {
-      description: `Order total: ${formatCurrency(total)}`,
-    });
-    
-    clearCart();
-    setPaymentDialogOpen(false);
-    setIsProcessing(false);
+    try {
+      const orderData = await createOrder.mutateAsync({
+        order: {
+          order_type: orderType,
+          table_id: orderType === 'dine-in' ? tableId : null,
+          customer_name: orderType !== 'dine-in' ? customerName : null,
+          customer_phone: orderType !== 'dine-in' ? customerPhone : null,
+          payment_method: selectedPayment,
+          payment_status: selectedPayment === 'cash' ? 'pending' : 'paid',
+          subtotal,
+          tax,
+          total,
+          status: 'pending',
+        },
+        items: cart.map(c => ({
+          menu_item_id: c.item.id,
+          quantity: c.quantity,
+          size: c.size || null,
+          unit_price: Number(c.item.price),
+          total_price: Number(c.item.price) * c.quantity,
+          notes: c.notes || null,
+          addons: null,
+        })),
+      });
+
+      // Create a mock order with items for printing
+      const orderWithItems = {
+        ...orderData,
+        order_items: cart.map(c => ({
+          id: crypto.randomUUID(),
+          order_id: orderData.id,
+          menu_item_id: c.item.id,
+          quantity: c.quantity,
+          size: c.size || null,
+          unit_price: Number(c.item.price),
+          total_price: Number(c.item.price) * c.quantity,
+          notes: c.notes || null,
+          addons: null as Json,
+          created_at: new Date().toISOString(),
+          menu_items: c.item,
+        })),
+      };
+
+      // Print receipt
+      printReceipt({ order: orderWithItems });
+      
+      clearCart();
+      setPaymentDialogOpen(false);
+    } catch (error) {
+      // Error is handled by the mutation
+    }
   };
 
   const getCategoryIcon = (categoryId: string) => {
-    switch (categoryId) {
-      case 'main': return '🍛';
-      case 'soups': return '🍲';
-      case 'grills': return '🍗';
-      case 'drinks': return '🥤';
-      case 'snacks': return '🥟';
-      case 'desserts': return '🍨';
-      default: return '🍽️';
-    }
+    const cat = categories.find(c => c.id === categoryId);
+    return cat?.icon || '🍽️';
   };
+
+  if (menuLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex animate-fade-in">
@@ -183,46 +234,62 @@ export function POSView() {
 
         {/* Menu Grid */}
         <div className="flex-1 p-4 lg:p-6 overflow-y-auto">
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredItems.map((item, index) => (
-              <button
-                key={item.id}
-                onClick={() => addToCart(item)}
-                disabled={!item.available}
-                className={cn(
-                  'group text-left rounded-2xl overflow-hidden bg-card border-2 border-border transition-all duration-300',
-                  item.available 
-                    ? 'hover:border-primary hover:shadow-lg hover:-translate-y-1 active:scale-[0.98]' 
-                    : 'opacity-50 cursor-not-allowed'
-                )}
-                style={{ animationDelay: `${index * 30}ms` }}
-              >
-                <div className="aspect-square bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center text-5xl relative">
-                  <span className="group-hover:scale-110 transition-transform duration-300">
-                    {getCategoryIcon(item.category)}
-                  </span>
-                  {!item.available && (
-                    <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
-                      <Badge variant="destructive" className="text-sm px-3 py-1">
-                        Out of Stock
-                      </Badge>
-                    </div>
+          {filteredItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+              <span className="text-6xl mb-4">🍽️</span>
+              <p className="font-medium">No items in this category</p>
+              <p className="text-sm">Add menu items from Menu Management</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredItems.map((item, index) => (
+                <button
+                  key={item.id}
+                  onClick={() => addToCart(item)}
+                  disabled={!item.available}
+                  className={cn(
+                    'group text-left rounded-2xl overflow-hidden bg-card border-2 border-border transition-all duration-300',
+                    item.available 
+                      ? 'hover:border-primary hover:shadow-lg hover:-translate-y-1 active:scale-[0.98]' 
+                      : 'opacity-50 cursor-not-allowed'
                   )}
-                </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-sm line-clamp-2 mb-2">{item.name}</h3>
-                  <div className="flex items-center justify-between">
-                    <p className="font-bold text-primary text-lg">{formatCurrency(item.price)}</p>
-                    {item.available && (
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                        <Plus className="w-4 h-4" />
+                  style={{ animationDelay: `${index * 30}ms` }}
+                >
+                  <div className="aspect-square bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center text-5xl relative overflow-hidden">
+                    {item.image_url ? (
+                      <img 
+                        src={item.image_url} 
+                        alt={item.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      />
+                    ) : (
+                      <span className="group-hover:scale-110 transition-transform duration-300">
+                        {getCategoryIcon(item.category)}
+                      </span>
+                    )}
+                    {!item.available && (
+                      <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+                        <Badge variant="destructive" className="text-sm px-3 py-1">
+                          Out of Stock
+                        </Badge>
                       </div>
                     )}
                   </div>
-                </div>
-              </button>
-            ))}
-          </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-sm line-clamp-2 mb-2">{item.name}</h3>
+                    <div className="flex items-center justify-between">
+                      <p className="font-bold text-primary text-lg">{formatCurrency(Number(item.price))}</p>
+                      {item.available && (
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                          <Plus className="w-4 h-4" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -252,16 +319,16 @@ export function POSView() {
             {orderType === 'dine-in' ? (
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground flex items-center gap-2">
-                  <MapPin className="w-3 h-3" /> Table Number
+                  <MapPin className="w-3 h-3" /> Table
                 </Label>
-                <Select value={tableNumber} onValueChange={setTableNumber}>
+                <Select value={tableId} onValueChange={setTableId}>
                   <SelectTrigger className="h-10">
                     <SelectValue placeholder="Select table" />
                   </SelectTrigger>
                   <SelectContent>
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
-                      <SelectItem key={num} value={num.toString()}>
-                        Table {num}
+                    {tables.filter(t => t.status === 'available').map(table => (
+                      <SelectItem key={table.id} value={table.id}>
+                        {table.name} ({table.seats} seats)
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -313,13 +380,17 @@ export function POSView() {
                 className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 animate-fade-in"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="w-12 h-12 rounded-lg bg-background flex items-center justify-center text-2xl shrink-0">
-                  {getCategoryIcon(cartItem.item.category)}
+                <div className="w-12 h-12 rounded-lg bg-background flex items-center justify-center text-2xl shrink-0 overflow-hidden">
+                  {cartItem.item.image_url ? (
+                    <img src={cartItem.item.image_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    getCategoryIcon(cartItem.item.category)
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{cartItem.item.name}</p>
                   <p className="text-primary font-bold">
-                    {formatCurrency(cartItem.item.price * cartItem.quantity)}
+                    {formatCurrency(Number(cartItem.item.price) * cartItem.quantity)}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -413,10 +484,10 @@ export function POSView() {
                 <span className="text-muted-foreground">Order Type</span>
                 <span className="font-medium capitalize">{orderType}</span>
               </div>
-              {orderType === 'dine-in' && tableNumber && (
+              {orderType === 'dine-in' && tableId && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Table</span>
-                  <span className="font-medium">Table {tableNumber}</span>
+                  <span className="font-medium">{tables.find(t => t.id === tableId)?.name}</span>
                 </div>
               )}
               {orderType !== 'dine-in' && customerName && (
@@ -444,22 +515,29 @@ export function POSView() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)} disabled={isProcessing}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setPaymentDialogOpen(false)}
+              className="flex-1"
+            >
               Cancel
             </Button>
-            <Button variant="gradient" onClick={confirmPayment} disabled={isProcessing}>
-              {isProcessing ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Processing...
-                </span>
+            <Button 
+              variant="gradient" 
+              onClick={confirmPayment}
+              disabled={createOrder.isPending}
+              className="flex-1"
+            >
+              {createOrder.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
                 <>
                   <Check className="w-4 h-4 mr-2" />
-                  Confirm Payment
+                  <Printer className="w-4 h-4 mr-2" />
                 </>
               )}
+              {createOrder.isPending ? 'Processing...' : 'Confirm & Print'}
             </Button>
           </DialogFooter>
         </DialogContent>
