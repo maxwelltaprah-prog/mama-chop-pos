@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { Eye, EyeOff, User, Mail, Lock, ChefHat } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Navigate, Link } from 'react-router-dom';
+import { Eye, EyeOff, User, Mail, Lock, ChefHat, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
@@ -164,6 +166,14 @@ export default function Auth() {
                   isLogin ? 'Sign In' : 'Create Account'
                 )}
               </Button>
+
+              {/* Demo Credentials */}
+              <Alert className="mt-4">
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Demo Admin:</strong> demo@chopbar.com / demo1234
+                </AlertDescription>
+              </Alert>
             </form>
 
             <div className="mt-6 text-center">
@@ -181,9 +191,17 @@ export default function Auth() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          By continuing, you agree to ChopBar's Terms of Service and Privacy Policy
-        </p>
+        <div className="text-center mt-6 space-y-2">
+          <Link 
+            to="/order" 
+            className="text-sm text-primary font-medium hover:underline"
+          >
+            🍽️ Customer Self-Order Portal →
+          </Link>
+          <p className="text-xs text-muted-foreground">
+            By continuing, you agree to ChopBar's Terms of Service and Privacy Policy
+          </p>
+        </div>
       </div>
     </div>
   );

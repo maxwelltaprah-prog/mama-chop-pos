@@ -118,6 +118,48 @@ export function useCreateOrder() {
   });
 }
 
+// For customer self-ordering (no auth required)
+export function useCreateCustomerOrder() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (order: Omit<OrderInsert, 'order_number' | 'created_by'>) => {
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          ...order,
+          order_number: 'TEMP', // Will be overwritten by trigger
+        })
+        .select()
+        .single();
+      
+      if (orderError) throw orderError;
+      return orderData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+    onError: (error) => {
+      throw error;
+    },
+  });
+}
+
+export function useCreateOrderItem() {
+  return useMutation({
+    mutationFn: async (item: OrderItemInsert) => {
+      const { data, error } = await supabase
+        .from('order_items')
+        .insert(item)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
   
