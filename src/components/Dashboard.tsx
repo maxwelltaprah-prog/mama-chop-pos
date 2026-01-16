@@ -25,28 +25,44 @@ export const Dashboard = forwardRef<HTMLDivElement>((_, ref) => {
   const { data: recentOrders, isLoading: ordersLoading } = useRecentOrders();
   const { totalTables, occupiedTables } = useActiveTablesCount();
 
+  // Helper to format percentage change
+  const formatChange = (value: number | undefined) => {
+    if (value === undefined || isNaN(value)) return { text: 'No data', type: 'neutral' as const };
+    const rounded = Math.round(value * 10) / 10;
+    if (rounded > 0) return { text: `+${rounded}%`, type: 'positive' as const };
+    if (rounded < 0) return { text: `${rounded}%`, type: 'negative' as const };
+    return { text: '0%', type: 'neutral' as const };
+  };
+
+  const salesChange = formatChange(stats?.salesChange);
+  const ordersChange = formatChange(stats?.ordersChange);
+  const avgOrderChange = formatChange(stats?.avgOrderChange);
+
   const statCards = [
     {
       title: "Today's Sales",
       value: stats ? formatCurrency(stats.totalSales) : '---',
-      change: stats?.totalSales > 0 ? 'Live' : 'No sales yet',
-      changeType: stats?.totalSales > 0 ? 'positive' : 'neutral' as const,
+      change: salesChange.text,
+      changeType: salesChange.type,
+      subtitle: stats?.yesterdaySales ? `vs ${formatCurrency(stats.yesterdaySales)} yesterday` : 'vs yesterday',
       icon: DollarSign,
       color: 'gradient-primary',
     },
     {
       title: 'Total Orders',
       value: stats?.totalOrders?.toString() || '0',
-      change: stats?.totalOrders > 0 ? 'Today' : 'No orders',
-      changeType: stats?.totalOrders > 0 ? 'positive' : 'neutral' as const,
+      change: ordersChange.text,
+      changeType: ordersChange.type,
+      subtitle: stats?.yesterdayOrders !== undefined ? `vs ${stats.yesterdayOrders} yesterday` : 'vs yesterday',
       icon: ShoppingBag,
       color: 'bg-accent',
     },
     {
       title: 'Avg Order Value',
       value: stats ? formatCurrency(stats.averageOrderValue) : '---',
-      change: stats?.averageOrderValue > 0 ? 'Per order' : 'N/A',
-      changeType: 'neutral' as const,
+      change: avgOrderChange.text,
+      changeType: avgOrderChange.type,
+      subtitle: stats?.yesterdayAvgOrderValue ? `vs ${formatCurrency(stats.yesterdayAvgOrderValue)}` : 'vs yesterday',
       icon: TrendingUp,
       color: 'bg-success',
     },
@@ -55,6 +71,7 @@ export const Dashboard = forwardRef<HTMLDivElement>((_, ref) => {
       value: `${occupiedTables}/${totalTables}`,
       change: occupiedTables > 0 ? 'Occupied' : 'All free',
       changeType: occupiedTables > 0 ? 'positive' : 'neutral' as const,
+      subtitle: 'Current status',
       icon: Users,
       color: 'bg-secondary',
     },
@@ -98,22 +115,27 @@ export const Dashboard = forwardRef<HTMLDivElement>((_, ref) => {
                     ) : (
                       <p className="text-2xl lg:text-3xl font-display font-bold">{stat.value}</p>
                     )}
-                    <div className="flex items-center gap-1 text-sm">
-                      {stat.changeType === 'positive' && (
-                        <ArrowUpRight className="w-4 h-4 text-success" />
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1 text-sm">
+                        {stat.changeType === 'positive' && (
+                          <ArrowUpRight className="w-4 h-4 text-success" />
+                        )}
+                        {stat.changeType === 'negative' && (
+                          <ArrowDownRight className="w-4 h-4 text-destructive" />
+                        )}
+                        <span className={
+                          stat.changeType === 'positive' 
+                            ? 'text-success font-medium' 
+                            : stat.changeType === 'negative' 
+                            ? 'text-destructive font-medium' 
+                            : 'text-muted-foreground'
+                        }>
+                          {stat.change}
+                        </span>
+                      </div>
+                      {stat.subtitle && (
+                        <p className="text-xs text-muted-foreground">{stat.subtitle}</p>
                       )}
-                      {stat.changeType === 'negative' && (
-                        <ArrowDownRight className="w-4 h-4 text-destructive" />
-                      )}
-                      <span className={
-                        stat.changeType === 'positive' 
-                          ? 'text-success' 
-                          : stat.changeType === 'negative' 
-                          ? 'text-destructive' 
-                          : 'text-muted-foreground'
-                      }>
-                        {stat.change}
-                      </span>
                     </div>
                   </div>
                   <div className={`w-12 h-12 rounded-xl ${stat.color} flex items-center justify-center shadow-md`}>

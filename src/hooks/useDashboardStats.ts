@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTables } from './useTables';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, subDays } from 'date-fns';
 
 export interface DashboardStats {
   totalSales: number;
@@ -11,6 +11,14 @@ export interface DashboardStats {
   momoPayments: number;
   cardPayments: number;
   pendingPayments: number;
+  // Yesterday's stats for comparison
+  yesterdaySales: number;
+  yesterdayOrders: number;
+  yesterdayAvgOrderValue: number;
+  // Percentage changes
+  salesChange: number;
+  ordersChange: number;
+  avgOrderChange: number;
 }
 
 export interface TopSellingItem {
@@ -29,43 +37,73 @@ export interface RecentOrder {
   created_at: string;
 }
 
+function calculatePercentChange(current: number, previous: number): number {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return ((current - previous) / previous) * 100;
+}
+
 export function useDashboardStats() {
   const today = new Date();
+  const yesterday = subDays(today, 1);
+  
   const startOfToday = startOfDay(today).toISOString();
   const endOfToday = endOfDay(today).toISOString();
+  const startOfYesterday = startOfDay(yesterday).toISOString();
+  const endOfYesterday = endOfDay(yesterday).toISOString();
 
   return useQuery({
     queryKey: ['dashboard-stats', startOfToday],
     queryFn: async (): Promise<DashboardStats> => {
-      const { data: orders, error } = await supabase
+      // Fetch today's orders
+      const { data: todayOrders, error: todayError } = await supabase
         .from('orders')
         .select('total, payment_method, payment_status')
         .gte('created_at', startOfToday)
         .lte('created_at', endOfToday);
 
-      if (error) throw error;
+      if (todayError) throw todayError;
 
-      const completedOrders = orders || [];
-      
-      const totalSales = completedOrders.reduce((sum, order) => sum + Number(order.total), 0);
-      const totalOrders = completedOrders.length;
+      // Fetch yesterday's orders
+      const { data: yesterdayOrders, error: yesterdayError } = await supabase
+        .from('orders')
+        .select('total, payment_method, payment_status')
+        .gte('created_at', startOfYesterday)
+        .lte('created_at', endOfYesterday);
+
+      if (yesterdayError) throw yesterdayError;
+
+      // Calculate today's stats
+      const todayData = todayOrders || [];
+      const totalSales = todayData.reduce((sum, order) => sum + Number(order.total), 0);
+      const totalOrders = todayData.length;
       const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
 
-      const cashPayments = completedOrders
+      const cashPayments = todayData
         .filter(o => o.payment_method === 'cash' && o.payment_status === 'paid')
         .reduce((sum, o) => sum + Number(o.total), 0);
 
-      const momoPayments = completedOrders
+      const momoPayments = todayData
         .filter(o => o.payment_method === 'momo' && o.payment_status === 'paid')
         .reduce((sum, o) => sum + Number(o.total), 0);
 
-      const cardPayments = completedOrders
+      const cardPayments = todayData
         .filter(o => o.payment_method === 'card' && o.payment_status === 'paid')
         .reduce((sum, o) => sum + Number(o.total), 0);
 
-      const pendingPayments = completedOrders
+      const pendingPayments = todayData
         .filter(o => o.payment_status === 'pending')
         .reduce((sum, o) => sum + Number(o.total), 0);
+
+      // Calculate yesterday's stats
+      const yesterdayData = yesterdayOrders || [];
+      const yesterdaySales = yesterdayData.reduce((sum, order) => sum + Number(order.total), 0);
+      const yesterdayOrderCount = yesterdayData.length;
+      const yesterdayAvgOrderValue = yesterdayOrderCount > 0 ? yesterdaySales / yesterdayOrderCount : 0;
+
+      // Calculate percentage changes
+      const salesChange = calculatePercentChange(totalSales, yesterdaySales);
+      const ordersChange = calculatePercentChange(totalOrders, yesterdayOrderCount);
+      const avgOrderChange = calculatePercentChange(averageOrderValue, yesterdayAvgOrderValue);
 
       return {
         totalSales,
@@ -75,6 +113,12 @@ export function useDashboardStats() {
         momoPayments,
         cardPayments,
         pendingPayments,
+        yesterdaySales,
+        yesterdayOrders: yesterdayOrderCount,
+        yesterdayAvgOrderValue,
+        salesChange,
+        ordersChange,
+        avgOrderChange,
       };
     },
     refetchInterval: 30000, // Refetch every 30 seconds
