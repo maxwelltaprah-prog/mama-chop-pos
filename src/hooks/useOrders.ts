@@ -161,7 +161,7 @@ export function useCreateOrder() {
   });
 }
 
-// For customer self-ordering (no auth required)
+// For customer self-ordering (no auth required, or authenticated customer)
 export function useCreateCustomerOrder() {
   const queryClient = useQueryClient();
 
@@ -170,17 +170,20 @@ export function useCreateCustomerOrder() {
       order,
       items,
     }: {
-      order: Omit<OrderInsert, 'order_number' | 'created_by'>;
+      order: Omit<OrderInsert, 'order_number' | 'created_by'> & { customer_user_id?: string | null };
       items: Omit<OrderItemInsert, 'order_id'>[];
     }) => {
       const attemptInsert = async (orderNumber: string) => {
+        // Cast to any to allow customer_user_id (new column not yet in generated types)
+        const orderData = {
+          ...order,
+          order_number: orderNumber,
+          created_by: null,
+        } as any;
+
         const { data: insertData, error: orderError } = await supabase
           .from('orders')
-          .insert({
-            ...order,
-            order_number: orderNumber,
-            created_by: null,
-          })
+          .insert(orderData)
           .select('id, order_number');
 
         return { insertData, orderError };

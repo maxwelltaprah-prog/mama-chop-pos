@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.create-pending-order]
 verify_jwt = false
+
+[functions.customer-signup]
+verify_jwt = false

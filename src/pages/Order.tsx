@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin, Loader2, CreditCard, History, Home, Download } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin, Loader2, CreditCard, History, Home, Download, User, LogOut } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { saveOrderToHistory } from './OrderHistory';
 import { useMenuItems, MenuItemRow, MenuItemSize, MenuItemAddon } from '@/hooks/useMenuItems';
 import { useCreateCustomerOrder } from '@/hooks/useOrders';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { formatCurrency, categories } from '@/lib/data';
 import { PromoBanner } from '@/components/PromoBanner';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,6 +31,13 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 
 interface CartItem {
@@ -41,6 +49,8 @@ interface CartItem {
 }
 
 export default function Order() {
+  const { user, profile, isAuthenticated, signOut, loading: authLoading } = useCustomerAuth();
+  
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -67,6 +77,14 @@ export default function Order() {
 
   const { data: menuItems = [], isLoading } = useMenuItems();
   const createOrder = useCreateCustomerOrder();
+
+  // Pre-fill customer info from profile
+  useEffect(() => {
+    if (profile) {
+      setCustomerName(profile.full_name || '');
+      setCustomerPhone(profile.phone || '');
+    }
+  }, [profile]);
 
   // Check for payment success from Paystack redirect
   useEffect(() => {
@@ -258,6 +276,8 @@ export default function Order() {
             status: 'pending',
             payment_status: 'pending',
             payment_method: 'cash',
+            // Link order to authenticated customer
+            customer_user_id: user?.id || null,
           },
           items: orderItems,
         });
@@ -300,6 +320,7 @@ export default function Order() {
           tax,
           total,
           status: 'pending',
+          customer_user_id: user?.id || null,
         },
         items: orderItems,
         ui: {
@@ -495,6 +516,35 @@ export default function Order() {
                   Install
                 </Button>
               </Link>
+
+              {/* Customer Account */}
+              {isAuthenticated ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <User className="w-4 h-4 mr-1" />
+                      {profile?.full_name || profile?.phone || 'Account'}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link to="/order-history">My Orders</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => signOut()}>
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link to="/customer-auth">
+                  <Button variant="outline" size="sm">
+                    <User className="w-4 h-4 mr-1" />
+                    Sign In
+                  </Button>
+                </Link>
+              )}
             
               <Sheet open={cartOpen} onOpenChange={setCartOpen}>
                 <SheetTrigger asChild>
