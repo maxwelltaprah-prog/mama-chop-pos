@@ -642,14 +642,18 @@ export default function Order() {
                   <span className="text-5xl">{getCategoryIcon(item.category)}</span>
                 )}
               </div>
-              <CardContent className="p-4">
-                <h3 className="font-semibold line-clamp-1">{item.name}</h3>
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{item.description}</p>
+              <CardContent className="p-2 sm:p-4">
+                <h3 className="font-semibold text-sm sm:text-base line-clamp-1">{item.name}</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1 sm:line-clamp-2 mb-1 sm:mb-2">{item.description}</p>
                 <div className="flex items-center justify-between">
-                  <p className="font-bold text-primary">{formatCurrency(Number(item.price))}</p>
-                  <Button size="sm" variant="outline">
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add
+                  <p className="font-bold text-primary text-sm sm:text-base">{formatCurrency(Number(item.price))}</p>
+                  <Button 
+                    size="icon" 
+                    variant="outline" 
+                    className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3 rounded-full sm:rounded-md"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span className="hidden sm:inline ml-1">Add</span>
                   </Button>
                 </div>
               </CardContent>
