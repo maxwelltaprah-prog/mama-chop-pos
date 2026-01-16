@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   Bell,
+  BellRing,
   Moon,
   Sun
 } from 'lucide-react';
@@ -51,7 +52,7 @@ export function AppLayout({ children, activeView, onViewChange }: AppLayoutProps
   const [isDark, setIsDark] = useState(false);
 
   // Listen for customer order notifications
-  const { unreadCount, clearNotifications } = useOrderNotifications();
+  const { unreadCount, clearNotifications, notificationPermission, requestPermission } = useOrderNotifications();
 
   // Listen for navigate-to-orders event
   useEffect(() => {
@@ -69,6 +70,19 @@ export function AppLayout({ children, activeView, onViewChange }: AppLayoutProps
       clearNotifications();
     }
   }, [activeView, clearNotifications]);
+
+  // Handle enabling push notifications
+  const handleEnableNotifications = async () => {
+    const granted = await requestPermission();
+    if (granted) {
+      // Show a toast to confirm
+      import('sonner').then(({ toast }) => {
+        toast.success('Push notifications enabled!', {
+          description: 'You will now receive alerts for new orders even when this tab is in the background.'
+        });
+      });
+    }
+  };
 
   const filteredNav = navigationItems.filter(item => 
     !role || item.roles.includes(role)
@@ -220,6 +234,19 @@ export function AppLayout({ children, activeView, onViewChange }: AppLayoutProps
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Push notification enable button */}
+            {notificationPermission === 'default' && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="hidden sm:flex items-center gap-2 text-xs"
+                onClick={handleEnableNotifications}
+              >
+                <BellRing className="w-4 h-4" />
+                Enable Alerts
+              </Button>
+            )}
+            
             <Button 
               variant="ghost" 
               size="icon" 
