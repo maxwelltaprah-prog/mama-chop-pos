@@ -56,7 +56,7 @@ export default function Order() {
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash_on_delivery'>('cash_on_delivery');
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'momo' | 'cash_on_delivery'>('cash_on_delivery');
 
   const { data: menuItems = [], isLoading } = useMenuItems();
   const createOrder = useCreateCustomerOrder();
@@ -188,8 +188,8 @@ export default function Order() {
         tax,
         total,
         status: 'pending',
-        payment_status: paymentMethod === 'online' ? 'paid' : 'pending',
-        payment_method: paymentMethod === 'online' ? 'online' : 'cash',
+        payment_status: paymentMethod === 'online' || paymentMethod === 'momo' ? 'paid' : 'pending',
+        payment_method: paymentMethod === 'online' ? 'online' : paymentMethod === 'momo' ? 'momo' : 'cash',
       });
 
       // Create order items
@@ -247,6 +247,8 @@ export default function Order() {
           <p className="text-sm text-muted-foreground mb-6">
             {paymentMethod === 'cash_on_delivery' ? (
               <>Please keep this number for reference. Pay the cashier or delivery rider when you receive your order.</>
+            ) : paymentMethod === 'momo' ? (
+              <>Mobile Money payment received! Your order is being prepared.</>
             ) : (
               <>Payment received! Your order is being prepared.</>
             )}
@@ -734,7 +736,20 @@ export default function Order() {
             {(orderType === 'takeaway' || orderType === 'delivery') && (
               <div className="space-y-2">
                 <Label>Payment Method</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('momo')}
+                    className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
+                      paymentMethod === 'momo' 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-muted hover:border-primary/50'
+                    }`}
+                  >
+                    <span className="text-xl">📱</span>
+                    <span className="text-sm font-medium">Mobile Money</span>
+                    <span className="text-xs text-muted-foreground">MTN, Voda, AT</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('online')}
@@ -745,8 +760,8 @@ export default function Order() {
                     }`}
                   >
                     <span className="text-xl">💳</span>
-                    <span className="text-sm font-medium">Pay Online</span>
-                    <span className="text-xs text-muted-foreground">Pay now</span>
+                    <span className="text-sm font-medium">Card</span>
+                    <span className="text-xs text-muted-foreground">Pay online</span>
                   </button>
                   <button
                     type="button"
@@ -758,8 +773,8 @@ export default function Order() {
                     }`}
                   >
                     <span className="text-xl">💵</span>
-                    <span className="text-sm font-medium">Pay on {orderType === 'delivery' ? 'Delivery' : 'Pickup'}</span>
-                    <span className="text-xs text-muted-foreground">Pay when you receive</span>
+                    <span className="text-sm font-medium">Cash</span>
+                    <span className="text-xs text-muted-foreground">{orderType === 'delivery' ? 'On delivery' : 'On pickup'}</span>
                   </button>
                 </div>
               </div>
@@ -778,7 +793,7 @@ export default function Order() {
                 <span>Total</span>
                 <span>{formatCurrency(cartTotal * 1.15)}</span>
               </div>
-              {paymentMethod === 'online' && (orderType === 'takeaway' || orderType === 'delivery') && (
+              {(paymentMethod === 'online' || paymentMethod === 'momo') && (orderType === 'takeaway' || orderType === 'delivery') && (
                 <p className="text-xs text-success flex items-center gap-1 pt-1">
                   <span>✓</span> Payment will be recorded automatically
                 </p>
@@ -786,6 +801,11 @@ export default function Order() {
               {paymentMethod === 'cash_on_delivery' && (orderType === 'takeaway' || orderType === 'delivery') && (
                 <p className="text-xs text-muted-foreground pt-1">
                   💡 Pay to the cashier or delivery rider
+                </p>
+              )}
+              {paymentMethod === 'momo' && (orderType === 'takeaway' || orderType === 'delivery') && (
+                <p className="text-xs text-muted-foreground pt-1">
+                  📲 You'll receive a prompt on your phone to complete payment
                 </p>
               )}
             </div>
