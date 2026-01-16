@@ -51,14 +51,25 @@ export function AppLayout({ children, activeView, onViewChange }: AppLayoutProps
   const [isDark, setIsDark] = useState(false);
 
   // Listen for customer order notifications
-  useOrderNotifications();
+  const { unreadCount, clearNotifications } = useOrderNotifications();
 
   // Listen for navigate-to-orders event
   useEffect(() => {
-    const handleNavigateToOrders = () => onViewChange('orders');
+    const handleNavigateToOrders = () => {
+      onViewChange('orders');
+      clearNotifications();
+    };
     window.addEventListener('navigate-to-orders', handleNavigateToOrders);
     return () => window.removeEventListener('navigate-to-orders', handleNavigateToOrders);
-  }, [onViewChange]);
+  }, [onViewChange, clearNotifications]);
+
+  // Clear notifications when viewing orders
+  useEffect(() => {
+    if (activeView === 'orders') {
+      clearNotifications();
+    }
+  }, [activeView, clearNotifications]);
+
   const filteredNav = navigationItems.filter(item => 
     !role || item.roles.includes(role)
   );
@@ -209,9 +220,21 @@ export function AppLayout({ children, activeView, onViewChange }: AppLayoutProps
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="relative">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative"
+              onClick={() => {
+                onViewChange('orders');
+                clearNotifications();
+              }}
+            >
               <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </Button>
           </div>
         </header>
