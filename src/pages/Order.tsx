@@ -251,7 +251,7 @@ export default function Order() {
                 <span className="text-2xl">🍲</span>
               </div>
               <div>
-                <h1 className="text-xl font-display font-bold text-gradient">ChopBar</h1>
+                <h1 className="text-xl font-display font-bold text-gradient">Eidikos Kouzina</h1>
                 <p className="text-xs text-muted-foreground">Order Online</p>
               </div>
             </div>

@@ -14,7 +14,7 @@ export function formatCurrencyForPrint(amount: number): string {
 export function generateReceiptHTML(options: PrintReceiptOptions): string {
   const {
     order,
-    restaurantName = 'ChopBar POS',
+    restaurantName = 'Eidikos Kouzina',
     restaurantAddress = 'Accra, Ghana',
     restaurantPhone = '+233 XX XXX XXXX',
   } = options;

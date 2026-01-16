@@ -1,10 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, format } from 'date-fns';
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from 'date-fns';
 
 export type ReportPeriod = 'Today' | 'This Week' | 'This Month' | 'Custom';
 
-const getDateRange = (period: ReportPeriod) => {
+export interface CustomDateRange {
+  start: Date;
+  end: Date;
+}
+
+export const getDateRange = (period: ReportPeriod, customRange?: CustomDateRange) => {
+  if (period === 'Custom' && customRange) {
+    return { start: startOfDay(customRange.start), end: endOfDay(customRange.end) };
+  }
+  
   const now = new Date();
   switch (period) {
     case 'Today':
@@ -18,11 +27,11 @@ const getDateRange = (period: ReportPeriod) => {
   }
 };
 
-export const useReportStats = (period: ReportPeriod) => {
-  const { start, end } = getDateRange(period);
+export const useReportStats = (period: ReportPeriod, customRange?: CustomDateRange) => {
+  const { start, end } = getDateRange(period, customRange);
 
   return useQuery({
-    queryKey: ['report-stats', period],
+    queryKey: ['report-stats', period, customRange?.start?.toISOString(), customRange?.end?.toISOString()],
     queryFn: async () => {
       // Fetch orders for the period
       const { data: orders, error } = await supabase
@@ -114,11 +123,11 @@ export const useWeeklySalesData = () => {
   });
 };
 
-export const useTopSellingItems = (period: ReportPeriod) => {
-  const { start, end } = getDateRange(period);
+export const useTopSellingItems = (period: ReportPeriod, customRange?: CustomDateRange) => {
+  const { start, end } = getDateRange(period, customRange);
 
   return useQuery({
-    queryKey: ['top-selling-items', period],
+    queryKey: ['top-selling-items', period, customRange?.start?.toISOString(), customRange?.end?.toISOString()],
     queryFn: async () => {
       // Get order items with menu item details for the period
       const { data: orderItems, error } = await supabase

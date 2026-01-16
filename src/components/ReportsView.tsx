@@ -5,10 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { useReportStats, useWeeklySalesData, useTopSellingItems, ReportPeriod } from '@/hooks/useReports';
+import { useReportStats, useWeeklySalesData, useTopSellingItems, ReportPeriod, CustomDateRange } from '@/hooks/useReports';
 import { useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
-const reportPeriods: ReportPeriod[] = ['Today', 'This Week', 'This Month'];
+const reportPeriods: ReportPeriod[] = ['Today', 'This Week', 'This Month', 'Custom'];
 
 const paymentMethodLabels: Record<string, { label: string; emoji: string; colorClass: string }> = {
   'mtn-momo': { label: 'MTN Mobile Money', emoji: '📱', colorClass: 'warning' },
@@ -27,11 +31,15 @@ const orderTypeLabels: Record<string, { label: string; emoji: string }> = {
 export const ReportsView = forwardRef<HTMLDivElement>((_, ref) => {
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('Today');
   const [isExporting, setIsExporting] = useState(false);
+  const [customRange, setCustomRange] = useState<CustomDateRange | undefined>();
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [tempStartDate, setTempStartDate] = useState<Date | undefined>();
+  const [tempEndDate, setTempEndDate] = useState<Date | undefined>();
   const queryClient = useQueryClient();
 
-  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useReportStats(selectedPeriod);
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useReportStats(selectedPeriod, customRange);
   const { data: weeklySales, isLoading: weeklyLoading, refetch: refetchWeekly } = useWeeklySalesData();
-  const { data: topItems, isLoading: topItemsLoading, refetch: refetchTopItems } = useTopSellingItems(selectedPeriod);
+  const { data: topItems, isLoading: topItemsLoading, refetch: refetchTopItems } = useTopSellingItems(selectedPeriod, customRange);
 
   const handleRefresh = async () => {
     toast.info('Refreshing data...');
@@ -48,8 +56,37 @@ export const ReportsView = forwardRef<HTMLDivElement>((_, ref) => {
     setIsExporting(false);
   };
 
+  const handleApplyDateRange = () => {
+    if (tempStartDate && tempEndDate) {
+      if (tempStartDate > tempEndDate) {
+        toast.error('Start date must be before end date');
+        return;
+      }
+      setCustomRange({ start: tempStartDate, end: tempEndDate });
+      setSelectedPeriod('Custom');
+      setDatePickerOpen(false);
+      toast.success(`Showing data from ${format(tempStartDate, 'MMM d')} to ${format(tempEndDate, 'MMM d, yyyy')}`);
+    } else {
+      toast.error('Please select both start and end dates');
+    }
+  };
+
+  const handlePeriodSelect = (period: ReportPeriod) => {
+    setSelectedPeriod(period);
+    if (period !== 'Custom') {
+      setCustomRange(undefined);
+    }
+  };
+
   const maxSales = Math.max(...(weeklySales || []).map(d => d.sales), 1);
   const totalOrderTypes = Object.values(stats?.orderTypeBreakdown || {}).reduce((a, b) => a + b, 0) || 1;
+
+  const getDisplayPeriod = () => {
+    if (selectedPeriod === 'Custom' && customRange) {
+      return `${format(customRange.start, 'MMM d')} - ${format(customRange.end, 'MMM d, yyyy')}`;
+    }
+    return selectedPeriod;
+  };
 
   return (
     <div ref={ref} className="p-4 lg:p-6 space-y-6 animate-fade-in">
@@ -60,10 +97,44 @@ export const ReportsView = forwardRef<HTMLDivElement>((_, ref) => {
           <p className="text-muted-foreground">Track your restaurant performance</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => toast.info('Date picker coming soon!')}>
-            <Calendar className="w-4 h-4 mr-2" />
-            Select Date
-          </Button>
+          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <Calendar className="w-4 h-4 mr-2" />
+                {selectedPeriod === 'Custom' && customRange 
+                  ? `${format(customRange.start, 'MMM d')} - ${format(customRange.end, 'MMM d')}`
+                  : 'Select Date Range'
+                }
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-4" align="end">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Start Date</p>
+                  <CalendarComponent
+                    mode="single"
+                    selected={tempStartDate}
+                    onSelect={setTempStartDate}
+                    className={cn("p-3 pointer-events-auto border rounded-md")}
+                    disabled={(date) => date > new Date()}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">End Date</p>
+                  <CalendarComponent
+                    mode="single"
+                    selected={tempEndDate}
+                    onSelect={setTempEndDate}
+                    className={cn("p-3 pointer-events-auto border rounded-md")}
+                    disabled={(date) => date > new Date()}
+                  />
+                </div>
+                <Button variant="gradient" className="w-full" onClick={handleApplyDateRange}>
+                  Apply Date Range
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button variant="outline" onClick={handleRefresh}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
@@ -90,10 +161,13 @@ export const ReportsView = forwardRef<HTMLDivElement>((_, ref) => {
           <Button
             key={period}
             variant={selectedPeriod === period ? 'default' : 'outline'}
-            onClick={() => setSelectedPeriod(period)}
+            onClick={() => handlePeriodSelect(period)}
             className="shrink-0"
           >
-            {period}
+            {period === 'Custom' && customRange 
+              ? `${format(customRange.start, 'MMM d')} - ${format(customRange.end, 'MMM d')}`
+              : period
+            }
           </Button>
         ))}
       </div>
@@ -113,7 +187,7 @@ export const ReportsView = forwardRef<HTMLDivElement>((_, ref) => {
                   </p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-muted-foreground text-sm">
-                  <span>{selectedPeriod}</span>
+                  <span>{getDisplayPeriod()}</span>
                 </div>
               </div>
               <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center shadow-md">
@@ -136,7 +210,7 @@ export const ReportsView = forwardRef<HTMLDivElement>((_, ref) => {
                   </p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-muted-foreground text-sm">
-                  <span>{selectedPeriod}</span>
+                  <span>{getDisplayPeriod()}</span>
                 </div>
               </div>
               <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center shadow-md">
@@ -159,7 +233,7 @@ export const ReportsView = forwardRef<HTMLDivElement>((_, ref) => {
                   </p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-muted-foreground text-sm">
-                  <span>{selectedPeriod}</span>
+                  <span>{getDisplayPeriod()}</span>
                 </div>
               </div>
               <div className="w-12 h-12 rounded-xl bg-success flex items-center justify-center shadow-md">

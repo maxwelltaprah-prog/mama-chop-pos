@@ -1,5 +1,6 @@
-import { ReactNode, useState } from 'react';
-import { 
+import { ReactNode, useState, useEffect } from 'react';
+import { useOrderNotifications } from '@/hooks/useOrderNotifications';
+import {
   LayoutDashboard, 
   UtensilsCrossed, 
   ShoppingCart, 
@@ -49,7 +50,15 @@ export function AppLayout({ children, activeView, onViewChange }: AppLayoutProps
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
 
-  // Filter navigation based on role
+  // Listen for customer order notifications
+  useOrderNotifications();
+
+  // Listen for navigate-to-orders event
+  useEffect(() => {
+    const handleNavigateToOrders = () => onViewChange('orders');
+    window.addEventListener('navigate-to-orders', handleNavigateToOrders);
+    return () => window.removeEventListener('navigate-to-orders', handleNavigateToOrders);
+  }, [onViewChange]);
   const filteredNav = navigationItems.filter(item => 
     !role || item.roles.includes(role)
   );
@@ -97,7 +106,7 @@ export function AppLayout({ children, activeView, onViewChange }: AppLayoutProps
               <span className="text-xl">🍲</span>
             </div>
             <div>
-              <h1 className="font-display font-bold text-lg">ChopBar</h1>
+              <h1 className="font-display font-bold text-lg">Eidikos Kouzina</h1>
               <p className="text-xs text-muted-foreground">POS System</p>
             </div>
           </div>
