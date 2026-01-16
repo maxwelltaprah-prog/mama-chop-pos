@@ -102,7 +102,7 @@ export function OrderQRCode() {
           </style>
         </head>
         <body>
-          <div class="logo">🍲</div>
+          <img src="/eidikos-logo.jpeg" alt="Eidikos Kouzina" style="width: 80px; height: 80px; border-radius: 16px; object-fit: cover; margin-bottom: 8px;" />
           <h1>Eidikos Kouzina</h1>
           <p>Scan to Order Online</p>
           <div class="qr-container">

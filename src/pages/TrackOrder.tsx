@@ -149,9 +149,11 @@ export default function TrackOrder() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl gradient-gold flex items-center justify-center shadow-lg">
-                <span className="text-2xl">🍲</span>
-              </div>
+              <img 
+                src="/eidikos-logo.jpeg" 
+                alt="Eidikos Kouzina" 
+                className="w-12 h-12 rounded-xl shadow-lg object-cover"
+              />
               <div>
                 <h1 className="text-xl font-display font-bold text-gradient">Eidikos Kouzina</h1>
                 <p className="text-xs text-muted-foreground">Track Your Order</p>

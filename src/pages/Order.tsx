@@ -431,9 +431,11 @@ export default function Order() {
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl gradient-gold flex items-center justify-center shadow-lg shrink-0">
-                <span className="text-xl sm:text-2xl">🍲</span>
-              </div>
+              <img 
+                src="/eidikos-logo.jpeg" 
+                alt="Eidikos Kouzina" 
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl shadow-lg shrink-0 object-cover"
+              />
               <div className="min-w-0">
                 <h1 className="text-base sm:text-xl font-display font-bold text-gradient truncate">Eidikos Kouzina</h1>
                 <p className="text-xs text-muted-foreground hidden sm:block">Order Online</p>

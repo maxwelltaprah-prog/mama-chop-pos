@@ -67,9 +67,11 @@ export default function Auth() {
       <div className="w-full max-w-md relative z-10 animate-fade-in">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 rounded-3xl gradient-gold flex items-center justify-center shadow-xl mb-4">
-            <span className="text-4xl">🍲</span>
-          </div>
+          <img 
+            src="/eidikos-logo.jpeg" 
+            alt="Eidikos Kouzina" 
+            className="w-20 h-20 rounded-3xl shadow-xl mb-4 object-cover"
+          />
           <h1 className="text-3xl font-display font-bold text-gradient">Eidikos Kouzina</h1>
           <p className="text-muted-foreground mt-1">Restaurant Management System</p>
         </div>
@@ -82,7 +84,7 @@ export default function Auth() {
             <CardDescription>
               {isLogin 
                 ? 'Sign in to access your dashboard' 
-                : 'Register to get started with ChopBar'}
+                : 'Register to get started with Eidikos Kouzina'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -199,7 +201,7 @@ export default function Auth() {
             🍽️ Customer Self-Order Portal →
           </Link>
           <p className="text-xs text-muted-foreground">
-            By continuing, you agree to ChopBar's Terms of Service and Privacy Policy
+            By continuing, you agree to Eidikos Kouzina's Terms of Service and Privacy Policy
           </p>
         </div>
       </div>
