@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useSettings, useUpdateSettings, SettingsMap } from '@/hooks/useSettings';
 import { useTables } from '@/hooks/useTables';
+import { OrderQRCode } from '@/components/OrderQRCode';
 import { toast } from 'sonner';
 
 export function SettingsView() {
@@ -346,6 +347,9 @@ export function SettingsView() {
             </div>
           </CardContent>
         </Card>
+
+        {/* QR Code for Customer Orders */}
+        <OrderQRCode />
 
         {/* Staff Management */}
         <Card>
