@@ -40,6 +40,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/auth" element={<Auth />} />
       <Route path="/order" element={<Order />} />
+      <Route path="/orders" element={<Navigate to="/order" replace />} />
       <Route path="/track" element={<TrackOrder />} />
       <Route
         path="/"
