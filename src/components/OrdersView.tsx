@@ -1,13 +1,23 @@
 import { useState, forwardRef } from 'react';
-import { Clock, Check, ChefHat, UtensilsCrossed, Package, Search, Printer, Loader2 } from 'lucide-react';
+import { Clock, Check, ChefHat, UtensilsCrossed, Package, Search, Printer, Loader2, CreditCard, Banknote, Smartphone } from 'lucide-react';
 import { formatCurrency, getStatusColor, getPaymentIcon } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { useOrders, useUpdateOrderStatus, OrderStatus, OrderWithItems } from '@/hooks/useOrders';
+import { useOrders, useUpdateOrderStatus, useUpdateOrder, OrderStatus, OrderWithItems } from '@/hooks/useOrders';
 import { printReceipt } from '@/lib/printReceipt';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 const statusSteps: { status: OrderStatus; label: string; icon: React.ElementType }[] = [
   { status: 'pending', label: 'Pending', icon: Clock },
@@ -24,12 +34,23 @@ const filterTabs: { id: string; label: string; status?: OrderStatus }[] = [
   { id: 'served', label: 'Served', status: 'served' },
 ];
 
+const paymentMethods = [
+  { id: 'cash', label: 'Cash', icon: Banknote },
+  { id: 'momo', label: 'Mobile Money', icon: Smartphone },
+  { id: 'card', label: 'Card', icon: CreditCard },
+];
+
 export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cash');
+  const [amountReceived, setAmountReceived] = useState('');
 
   const { data: orders = [], isLoading } = useOrders();
   const updateStatus = useUpdateOrderStatus();
+  const updateOrder = useUpdateOrder();
 
   const filteredOrders = orders.filter(order => {
     const matchesTab = activeTab === 'all' || order.status === activeTab;
@@ -58,6 +79,36 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
 
   const handlePrint = (order: OrderWithItems) => {
     printReceipt({ order });
+  };
+
+  const openPaymentDialog = (order: OrderWithItems) => {
+    setSelectedOrder(order);
+    setAmountReceived(order.total.toString());
+    setSelectedPaymentMethod('cash');
+    setPaymentDialogOpen(true);
+  };
+
+  const handleRecordPayment = async () => {
+    if (!selectedOrder) return;
+    
+    const amount = parseFloat(amountReceived);
+    if (isNaN(amount) || amount < Number(selectedOrder.total)) {
+      toast.error('Amount received must be at least the order total');
+      return;
+    }
+
+    try {
+      await updateOrder.mutateAsync({
+        id: selectedOrder.id,
+        payment_status: 'paid',
+        payment_method: selectedPaymentMethod,
+      });
+      toast.success(`Payment of ${formatCurrency(amount)} recorded for ${selectedOrder.order_number}`);
+      setPaymentDialogOpen(false);
+      setSelectedOrder(null);
+    } catch (error) {
+      toast.error('Failed to record payment');
+    }
   };
 
   if (isLoading) {
@@ -129,9 +180,22 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
                     {order.customer_name && <span>• {order.customer_name}</span>}
                   </div>
                 </div>
-                <Badge className={cn('capitalize font-semibold', getStatusColor(order.status as any))}>
-                  {order.status}
-                </Badge>
+                <div className="flex flex-col items-end gap-1">
+                  <Badge className={cn('capitalize font-semibold', getStatusColor(order.status as any))}>
+                    {order.status}
+                  </Badge>
+                  <Badge 
+                    variant={order.payment_status === 'paid' ? 'default' : 'destructive'}
+                    className={cn(
+                      'text-xs',
+                      order.payment_status === 'paid' 
+                        ? 'bg-success/20 text-success border-success/30' 
+                        : 'bg-destructive/20 text-destructive border-destructive/30'
+                    )}
+                  >
+                    {order.payment_status === 'paid' ? '💰 Paid' : '⏳ Unpaid'}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
@@ -199,16 +263,29 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handlePrint(order)}
-                  className="flex-1"
                 >
                   <Printer className="w-4 h-4 mr-2" />
                   Print
                 </Button>
+                
+                {/* Record Payment Button - Only show for unpaid orders */}
+                {order.payment_status !== 'paid' && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="border-success text-success hover:bg-success/10"
+                    onClick={() => openPaymentDialog(order)}
+                  >
+                    <Banknote className="w-4 h-4 mr-2" />
+                    Record Payment
+                  </Button>
+                )}
+                
                 {getNextStatus(order.status) && (
                   <Button 
                     variant="gradient" 
@@ -252,6 +329,106 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
           <p className="text-sm text-muted-foreground/70">Orders will appear here when placed</p>
         </div>
       )}
+
+      {/* Payment Recording Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Record Payment</DialogTitle>
+            <DialogDescription>
+              Record payment for order {selectedOrder?.order_number}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedOrder && (
+            <div className="space-y-4 py-4">
+              {/* Order Summary */}
+              <div className="bg-muted rounded-lg p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Order Number</span>
+                  <span className="font-mono font-medium">{selectedOrder.order_number}</span>
+                </div>
+                {selectedOrder.customer_name && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Customer</span>
+                    <span>{selectedOrder.customer_name}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Order Type</span>
+                  <span className="capitalize">{selectedOrder.order_type}</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
+                  <span>Total Due</span>
+                  <span className="text-primary">{formatCurrency(Number(selectedOrder.total))}</span>
+                </div>
+              </div>
+
+              {/* Payment Method Selection */}
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {paymentMethods.map((method) => {
+                    const IconComponent = method.icon;
+                    return (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setSelectedPaymentMethod(method.id)}
+                        className={cn(
+                          'p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1',
+                          selectedPaymentMethod === method.id 
+                            ? 'border-primary bg-primary/10' 
+                            : 'border-muted hover:border-primary/50'
+                        )}
+                      >
+                        <IconComponent className="w-5 h-5" />
+                        <span className="text-xs font-medium">{method.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Amount Received */}
+              <div className="space-y-2">
+                <Label htmlFor="amountReceived">Amount Received</Label>
+                <Input
+                  id="amountReceived"
+                  type="number"
+                  step="0.01"
+                  value={amountReceived}
+                  onChange={(e) => setAmountReceived(e.target.value)}
+                  className="text-lg font-mono"
+                />
+                {parseFloat(amountReceived) > Number(selectedOrder.total) && (
+                  <p className="text-sm text-success">
+                    Change: {formatCurrency(parseFloat(amountReceived) - Number(selectedOrder.total))}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="gradient" 
+              onClick={handleRecordPayment}
+              disabled={updateOrder.isPending}
+            >
+              {updateOrder.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Check className="w-4 h-4 mr-2" />
+              )}
+              Confirm Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 });
