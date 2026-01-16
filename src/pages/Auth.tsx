@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, User, Mail, Lock, ChefHat, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Auth() {
+  const { user: customerUser } = useCustomerAuth();
   const { user, loading, signIn, signUp } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -21,7 +23,12 @@ export default function Auth() {
     fullName: '',
   });
 
-  // Redirect if already logged in
+  // Redirect customers away from staff auth page
+  if (customerUser) {
+    return <Navigate to="/order" replace />;
+  }
+
+  // Redirect if already logged in as staff
   if (user && !loading) {
     return <Navigate to="/" replace />;
   }
@@ -193,17 +200,9 @@ export default function Auth() {
           </CardContent>
         </Card>
 
-        <div className="text-center mt-6 space-y-2">
-          <Link 
-            to="/order" 
-            className="text-sm text-primary font-medium hover:underline"
-          >
-            🍽️ Customer Self-Order Portal →
-          </Link>
-          <p className="text-xs text-muted-foreground">
-            By continuing, you agree to Eidikos Kouzina's Terms of Service and Privacy Policy
-          </p>
-        </div>
+        <p className="text-center mt-6 text-xs text-muted-foreground">
+          Staff access only. By continuing, you agree to Eidikos Kouzina's Terms of Service.
+        </p>
       </div>
     </div>
   );

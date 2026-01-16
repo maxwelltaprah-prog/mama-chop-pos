@@ -17,13 +17,16 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const { user: customerUser } = useCustomerAuth();
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="animate-pulse flex flex-col items-center gap-4">
+        <div className="animate-pulse flex flex-col items-center gap-4">
           <img 
             src="/eidikos-logo.jpeg" 
             alt="Eidikos Kouzina" 
@@ -33,6 +36,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  // Block customers from accessing staff dashboard
+  if (customerUser && !user) {
+    return <Navigate to="/order" replace />;
   }
 
   if (!user) {
