@@ -427,40 +427,40 @@ export default function Order() {
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl gradient-gold flex items-center justify-center shadow-lg">
-                <span className="text-2xl">🍲</span>
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b safe-top">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl gradient-gold flex items-center justify-center shadow-lg shrink-0">
+                <span className="text-xl sm:text-2xl">🍲</span>
               </div>
-              <div>
-                <h1 className="text-xl font-display font-bold text-gradient">Eidikos Kouzina</h1>
-                <p className="text-xs text-muted-foreground">Order Online</p>
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl font-display font-bold text-gradient truncate">Eidikos Kouzina</h1>
+                <p className="text-xs text-muted-foreground hidden sm:block">Order Online</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               <Link to="/order-history">
-                <Button variant="ghost" size="sm">
-                  <History className="w-4 h-4 mr-1" />
-                  History
+                <Button variant="ghost" size="sm" className="px-2 sm:px-3">
+                  <History className="w-4 h-4 sm:mr-1" />
+                  <span className="hidden sm:inline">History</span>
                 </Button>
               </Link>
               <Link to="/track">
-                <Button variant="ghost" size="sm">
-                  <MapPin className="w-4 h-4 mr-1" />
-                  Track Order
+                <Button variant="ghost" size="sm" className="px-2 sm:px-3">
+                  <MapPin className="w-4 h-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Track</span>
                 </Button>
               </Link>
             
               <Sheet open={cartOpen} onOpenChange={setCartOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="lg" className="relative">
-                  <ShoppingCart className="w-5 h-5 mr-2" />
-                  Cart
+                <Button variant="outline" size="default" className="relative px-3 sm:px-4">
+                  <ShoppingCart className="w-5 h-5 sm:mr-2" />
+                  <span className="hidden sm:inline">Cart</span>
                   {cartItemCount > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-6 w-6 p-0 flex items-center justify-center">
+                    <Badge className="absolute -top-2 -right-2 h-5 w-5 sm:h-6 sm:w-6 p-0 flex items-center justify-center text-xs">
                       {cartItemCount}
                     </Badge>
                   )}
@@ -579,24 +579,24 @@ export default function Order() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 pb-20 sm:pb-6">
         {/* Search */}
-        <div className="relative max-w-md mx-auto mb-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        <div className="relative max-w-md mx-auto mb-4 sm:mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 sm:w-5 h-4 sm:h-5 text-muted-foreground" />
           <Input
             placeholder="Search menu..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-12"
+            className="pl-9 sm:pl-10 h-10 sm:h-12"
           />
         </div>
 
         {/* Categories */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-3 sm:pb-4 mb-4 sm:mb-6 scrollbar-hide -mx-1 px-1">
           <Button
             variant={selectedCategory === 'all' ? 'default' : 'outline'}
             onClick={() => setSelectedCategory('all')}
-            className="shrink-0"
+            className="shrink-0 h-9 sm:h-10 px-3 sm:px-4 text-sm"
           >
             All
           </Button>
@@ -605,16 +605,16 @@ export default function Order() {
               key={cat.id}
               variant={selectedCategory === cat.id ? 'default' : 'outline'}
               onClick={() => setSelectedCategory(cat.id)}
-              className="shrink-0"
+              className="shrink-0 h-9 sm:h-10 px-3 sm:px-4 text-sm"
             >
-              <span className="mr-2">{cat.icon}</span>
+              <span className="mr-1.5 sm:mr-2">{cat.icon}</span>
               {cat.name}
             </Button>
           ))}
         </div>
 
         {/* Menu Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
           {filteredItems.map((item, index) => (
             <Card 
               key={item.id}
