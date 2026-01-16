@@ -101,12 +101,24 @@ export default function Order() {
         // Clear URL params
         window.history.replaceState({}, '', '/order');
       } else {
-        toast.error('Payment could not be verified. Please contact support.');
+        toast.error(
+          'We couldn\'t verify your payment. Please check your payment method or try again.',
+          {
+            duration: 8000,
+            action: {
+              label: 'Try Again',
+              onClick: () => window.location.reload(),
+            },
+          }
+        );
       }
     } catch (error) {
       console.error('Payment verification error:', error);
       toast.dismiss('verify-payment');
-      toast.error('Failed to verify payment. Please contact support if you were charged.');
+      toast.error(
+        'Payment verification timed out. If you were charged, your order will still be processed. Please contact support with your reference number.',
+        { duration: 10000 }
+      );
     } finally {
       setIsProcessingPayment(false);
     }
@@ -310,7 +322,26 @@ export default function Order() {
       }
     } catch (error) {
       console.error('Checkout error:', error);
-      toast.error('Failed to place order. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : '';
+      
+      // Check if it's a session timeout issue
+      if (errorMessage.includes('violates row-level security') || errorMessage.includes('RLS')) {
+        toast.error(
+          'Your session has expired. Please refresh the page and try again.',
+          {
+            duration: 8000,
+            action: {
+              label: 'Refresh',
+              onClick: () => window.location.reload(),
+            },
+          }
+        );
+      } else {
+        toast.error(
+          'Unable to process your order. Please try again or contact support if the issue persists.',
+          { duration: 6000 }
+        );
+      }
     } finally {
       setIsProcessingPayment(false);
     }
