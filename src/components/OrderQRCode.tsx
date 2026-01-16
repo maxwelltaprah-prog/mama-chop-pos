@@ -5,17 +5,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
+// Custom domain for the order page
+const CUSTOM_DOMAIN = 'https://eidikoskouzina.com';
+
 export function OrderQRCode() {
   const [copied, setCopied] = useState(false);
   
-  // Get the base URL from the current window location
-  const baseUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/order`
-    : 'https://mama-chop-pos.lovable.app/order';
+  // Use custom domain for QR code
+  const orderUrl = `${CUSTOM_DOMAIN}/order`;
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(baseUrl);
+      await navigator.clipboard.writeText(orderUrl);
       setCopied(true);
       toast.success('Link copied to clipboard!');
       setTimeout(() => setCopied(false), 2000);
@@ -107,7 +108,7 @@ export function OrderQRCode() {
           <div class="qr-container">
             ${svgData}
           </div>
-          <p class="url">${baseUrl}</p>
+          <p class="url">${orderUrl}</p>
           <script>
             window.onload = function() { window.print(); window.close(); }
           </script>
@@ -134,7 +135,7 @@ export function OrderQRCode() {
           <div className="p-4 bg-white rounded-2xl shadow-md border-2 border-primary/20">
             <QRCodeSVG
               id="order-qr-code"
-              value={baseUrl}
+              value={orderUrl}
               size={180}
               level="H"
               includeMargin={false}
@@ -153,7 +154,7 @@ export function OrderQRCode() {
         {/* URL display */}
         <div className="p-3 rounded-lg bg-muted/50 text-center">
           <p className="text-xs text-muted-foreground mb-1">Order page URL</p>
-          <p className="text-sm font-mono break-all">{baseUrl}</p>
+          <p className="text-sm font-mono break-all">{orderUrl}</p>
         </div>
 
         {/* Action buttons */}
