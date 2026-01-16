@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useMenuItems, MenuItemRow, MenuItemSize, MenuItemAddon } from '@/hooks/useMenuItems';
 import { useCreateCustomerOrder, useCreateOrderItem } from '@/hooks/useOrders';
 import { formatCurrency, categories } from '@/lib/data';
@@ -49,7 +50,9 @@ export default function Order() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
-  const [orderType, setOrderType] = useState<'dine-in' | 'takeaway'>('takeaway');
+  const [orderType, setOrderType] = useState<'dine-in' | 'takeaway' | 'delivery'>('takeaway');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryArea, setDeliveryArea] = useState('');
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
@@ -146,17 +149,40 @@ export default function Order() {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
 
+    // Validate delivery requirements
+    if (orderType === 'delivery') {
+      if (!deliveryAddress.trim()) {
+        toast.error('Please enter a delivery address');
+        return;
+      }
+      if (!customerName.trim()) {
+        toast.error('Please enter your name for delivery');
+        return;
+      }
+      if (!customerPhone.trim()) {
+        toast.error('Please enter your phone number for delivery');
+        return;
+      }
+    }
+
     try {
       const TAX_RATE = 0.15; // 15% VAT
       const subtotal = cartTotal;
       const tax = subtotal * TAX_RATE;
       const total = subtotal + tax;
 
+      // Build notes with delivery address if applicable
+      let fullNotes = orderNotes || '';
+      if (orderType === 'delivery' && deliveryAddress) {
+        const deliveryInfo = `📍 Delivery Address: ${deliveryAddress}${deliveryArea ? ` (${deliveryArea})` : ''}`;
+        fullNotes = fullNotes ? `${deliveryInfo}\n\n${fullNotes}` : deliveryInfo;
+      }
+
       const order = await createOrder.mutateAsync({
         order_type: orderType,
         customer_name: customerName || null,
         customer_phone: customerPhone || null,
-        notes: orderNotes || null,
+        notes: fullNotes || null,
         subtotal,
         tax,
         total,
@@ -192,6 +218,8 @@ export default function Order() {
       setCustomerName('');
       setCustomerPhone('');
       setOrderNotes('');
+      setDeliveryAddress('');
+      setDeliveryArea('');
       setOrderType('takeaway');
     } catch (error) {
       toast.error('Failed to place order. Please try again.');
@@ -216,14 +244,22 @@ export default function Order() {
           <p className="text-sm text-muted-foreground mb-6">
             Please keep this number for reference. You'll be notified when your order is ready.
           </p>
-          <Button 
-            variant="gradient" 
-            size="lg" 
-            className="w-full"
-            onClick={() => setOrderPlaced(false)}
-          >
-            Place Another Order
-          </Button>
+          <div className="space-y-3">
+            <Link to="/track" className="block">
+              <Button variant="outline" size="lg" className="w-full">
+                <MapPin className="w-4 h-4 mr-2" />
+                Track Order
+              </Button>
+            </Link>
+            <Button 
+              variant="gradient" 
+              size="lg" 
+              className="w-full"
+              onClick={() => setOrderPlaced(false)}
+            >
+              Place Another Order
+            </Button>
+          </div>
         </Card>
       </div>
     );
@@ -257,8 +293,16 @@ export default function Order() {
                 <p className="text-xs text-muted-foreground">Order Online</p>
               </div>
             </div>
+
+            <div className="flex items-center gap-2">
+              <Link to="/track">
+                <Button variant="ghost" size="sm">
+                  <MapPin className="w-4 h-4 mr-1" />
+                  Track Order
+                </Button>
+              </Link>
             
-            <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+              <Sheet open={cartOpen} onOpenChange={setCartOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" size="lg" className="relative">
                   <ShoppingCart className="w-5 h-5 mr-2" />
@@ -377,6 +421,7 @@ export default function Order() {
                 )}
               </SheetContent>
             </Sheet>
+            </div>
           </div>
         </div>
       </header>
@@ -572,40 +617,82 @@ export default function Order() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
             {/* Order Type Selection */}
             <div className="space-y-2">
               <Label>Order Type</Label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setOrderType('dine-in')}
-                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                  className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
                     orderType === 'dine-in' 
                       ? 'border-primary bg-primary/10' 
                       : 'border-muted hover:border-primary/50'
                   }`}
                 >
-                  <span className="text-2xl">🍽️</span>
-                  <span className="font-medium">Dine-in</span>
+                  <span className="text-xl">🍽️</span>
+                  <span className="text-sm font-medium">Dine-in</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setOrderType('takeaway')}
-                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                  className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
                     orderType === 'takeaway' 
                       ? 'border-primary bg-primary/10' 
                       : 'border-muted hover:border-primary/50'
                   }`}
                 >
-                  <span className="text-2xl">📦</span>
-                  <span className="font-medium">Takeaway</span>
+                  <span className="text-xl">📦</span>
+                  <span className="text-sm font-medium">Takeaway</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderType('delivery')}
+                  className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
+                    orderType === 'delivery' 
+                      ? 'border-primary bg-primary/10' 
+                      : 'border-muted hover:border-primary/50'
+                  }`}
+                >
+                  <span className="text-xl">🚴</span>
+                  <span className="text-sm font-medium">Delivery</span>
                 </button>
               </div>
             </div>
 
+            {/* Delivery Address Fields */}
+            {orderType === 'delivery' && (
+              <div className="space-y-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                <div className="flex items-center gap-2 text-primary">
+                  <MapPin className="w-4 h-4" />
+                  <span className="text-sm font-medium">Delivery Details</span>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deliveryAddress">Delivery Address *</Label>
+                  <Textarea
+                    id="deliveryAddress"
+                    placeholder="Enter your full delivery address..."
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="deliveryArea">Area/Landmark (Optional)</Label>
+                  <Input
+                    id="deliveryArea"
+                    placeholder="e.g., Near XYZ Mall, Osu"
+                    value={deliveryArea}
+                    onChange={(e) => setDeliveryArea(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <Label htmlFor="customerName">Name (Optional)</Label>
+              <Label htmlFor="customerName">{orderType === 'delivery' ? 'Name *' : 'Name (Optional)'}</Label>
               <Input
                 id="customerName"
                 placeholder="Your name"
@@ -615,7 +702,7 @@ export default function Order() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="customerPhone">Phone Number (Optional)</Label>
+              <Label htmlFor="customerPhone">{orderType === 'delivery' ? 'Phone Number *' : 'Phone Number (Optional)'}</Label>
               <Input
                 id="customerPhone"
                 type="tel"

@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Order from "./pages/Order";
+import TrackOrder from "./pages/TrackOrder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/auth" element={<Auth />} />
       <Route path="/order" element={<Order />} />
+      <Route path="/track" element={<TrackOrder />} />
       <Route
         path="/"
         element={
