@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin, Loader2, CreditCard } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin, Loader2, CreditCard, History } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { saveOrderToHistory } from './OrderHistory';
 import { useMenuItems, MenuItemRow, MenuItemSize, MenuItemAddon } from '@/hooks/useMenuItems';
 import { useCreateCustomerOrder, useCreateOrderItem } from '@/hooks/useOrders';
 import { formatCurrency, categories } from '@/lib/data';
@@ -252,6 +253,22 @@ export default function Order() {
         });
       }
 
+      // Save order to local history
+      const orderHistoryItem = {
+        orderNumber: order.order_number,
+        orderType,
+        total,
+        paymentMethod: paymentMethod === 'online' ? 'card' : paymentMethod === 'momo' ? 'momo' : 'cash',
+        paymentStatus: paymentMethod === 'cash_on_delivery' ? 'pending' : 'pending',
+        items: cart.map(item => ({
+          name: item.menuItem.name,
+          quantity: item.quantity,
+          price: (item.selectedSize?.price ?? Number(item.menuItem.price) + item.selectedAddons.reduce((sum, a) => sum + a.price, 0)) * item.quantity,
+        })),
+        createdAt: new Date().toISOString(),
+      };
+      saveOrderToHistory(orderHistoryItem);
+
       // For cash payments, complete the order flow
       if (paymentMethod === 'cash_on_delivery') {
         setOrderNumber(order.order_number);
@@ -393,6 +410,12 @@ export default function Order() {
             </div>
 
             <div className="flex items-center gap-2">
+              <Link to="/order-history">
+                <Button variant="ghost" size="sm">
+                  <History className="w-4 h-4 mr-1" />
+                  History
+                </Button>
+              </Link>
               <Link to="/track">
                 <Button variant="ghost" size="sm">
                   <MapPin className="w-4 h-4 mr-1" />

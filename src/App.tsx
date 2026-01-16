@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Order from "./pages/Order";
+import OrderHistory from "./pages/OrderHistory";
 import TrackOrder from "./pages/TrackOrder";
 import NotFound from "./pages/NotFound";
 
@@ -40,6 +41,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/auth" element={<Auth />} />
       <Route path="/order" element={<Order />} />
+      <Route path="/order-history" element={<OrderHistory />} />
       <Route path="/orders" element={<Navigate to="/order" replace />} />
       <Route path="/track" element={<TrackOrder />} />
       <Route
