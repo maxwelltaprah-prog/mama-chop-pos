@@ -242,7 +242,7 @@ export default function Order() {
         total,
         status: 'pending',
         payment_status: initialPaymentStatus,
-        payment_method: paymentMethod === 'online' ? 'card' : paymentMethod === 'momo' ? 'momo' : 'cash',
+        payment_method: paymentMethod === 'online' ? 'card' : paymentMethod === 'momo' ? 'mtn-momo' : 'cash',
       });
 
       // Create order items
@@ -270,7 +270,7 @@ export default function Order() {
         orderNumber: order.order_number,
         orderType,
         total,
-        paymentMethod: paymentMethod === 'online' ? 'card' : paymentMethod === 'momo' ? 'momo' : 'cash',
+        paymentMethod: paymentMethod === 'online' ? 'card' : paymentMethod === 'momo' ? 'mtn-momo' : 'cash',
         paymentStatus: paymentMethod === 'cash_on_delivery' ? 'pending' : 'pending',
         items: cart.map(item => ({
           name: item.menuItem.name,
