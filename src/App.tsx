@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Order from "./pages/Order";
 import OrderHistory from "./pages/OrderHistory";
 import TrackOrder from "./pages/TrackOrder";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,10 +20,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl gradient-gold flex items-center justify-center shadow-lg">
-            <span className="text-3xl">🍲</span>
-          </div>
+      <div className="animate-pulse flex flex-col items-center gap-4">
+          <img 
+            src="/eidikos-logo.jpeg" 
+            alt="Eidikos Kouzina" 
+            className="w-16 h-16 rounded-2xl shadow-lg object-cover"
+          />
           <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
@@ -44,6 +47,7 @@ function AppRoutes() {
       <Route path="/order-history" element={<OrderHistory />} />
       <Route path="/orders" element={<Navigate to="/order" replace />} />
       <Route path="/track" element={<TrackOrder />} />
+      <Route path="/install" element={<Install />} />
       <Route
         path="/"
         element={
