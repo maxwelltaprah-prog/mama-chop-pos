@@ -7,6 +7,7 @@ import { TablesView } from '@/components/TablesView';
 import { MenuManagement } from '@/components/MenuManagement';
 import { ReportsView } from '@/components/ReportsView';
 import { SettingsView } from '@/components/SettingsView';
+import { EmployeesView } from '@/components/EmployeesView';
 
 const Index = () => {
   const [activeView, setActiveView] = useState('dashboard');
@@ -23,6 +24,8 @@ const Index = () => {
         return <TablesView />;
       case 'menu':
         return <MenuManagement />;
+      case 'employees':
+        return <EmployeesView />;
       case 'reports':
         return <ReportsView />;
       case 'settings':

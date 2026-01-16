@@ -14,7 +14,8 @@ import {
   Bell,
   BellRing,
   Moon,
-  Sun
+  Sun,
+  UserCog
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,7 @@ const navigationItems = [
   { id: 'menu', label: 'Menu', icon: UtensilsCrossed, roles: ['admin'] },
   { id: 'orders', label: 'Orders', icon: ChefHat, roles: ['admin', 'cashier', 'kitchen'] },
   { id: 'tables', label: 'Tables', icon: Users, roles: ['admin', 'cashier'] },
+  { id: 'employees', label: 'Employees', icon: UserCog, roles: ['admin'] },
   { id: 'reports', label: 'Reports', icon: BarChart3, roles: ['admin'] },
   { id: 'settings', label: 'Settings', icon: Settings, roles: ['admin'] },
 ];
