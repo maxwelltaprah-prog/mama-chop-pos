@@ -211,7 +211,6 @@ export default function Order() {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
 
-
     // Validate email for online payments
     if ((paymentMethod === 'online' || paymentMethod === 'momo') && !customerEmail.trim()) {
       toast.error('Please enter your email for online payment');
@@ -220,19 +219,16 @@ export default function Order() {
 
     try {
       setIsProcessingPayment(true);
-      
+
       const TAX_RATE = 0.15; // 15% VAT
       const subtotal = cartTotal;
       const tax = subtotal * TAX_RATE;
       const total = subtotal + tax;
 
-      let fullNotes = orderNotes || '';
-
-      // For online/momo payments, set status to pending until payment is verified
-      const initialPaymentStatus = (paymentMethod === 'online' || paymentMethod === 'momo') ? 'pending' : 'pending';
+      const fullNotes = orderNotes || '';
 
       // Prepare order items
-      const orderItems = cart.map(item => {
+      const orderItems = cart.map((item) => {
         const basePrice = item.selectedSize?.price ?? Number(item.menuItem.price);
         const addonsPrice = item.selectedAddons.reduce((sum, addon) => sum + addon.price, 0);
         const unitPrice = basePrice + addonsPrice;
@@ -243,14 +239,58 @@ export default function Order() {
           unit_price: unitPrice,
           total_price: unitPrice * item.quantity,
           size: item.selectedSize?.name || null,
-          addons: item.selectedAddons.length > 0 
-            ? JSON.parse(JSON.stringify(item.selectedAddons))
-            : null,
+          addons: item.selectedAddons.length > 0 ? JSON.parse(JSON.stringify(item.selectedAddons)) : null,
           notes: item.notes || null,
         };
       });
 
-      const order = await createOrder.mutateAsync({
+      // Cash: create order immediately
+      if (paymentMethod === 'cash_on_delivery') {
+        const order = await createOrder.mutateAsync({
+          order: {
+            order_type: orderType,
+            customer_name: customerName || null,
+            customer_phone: customerPhone || null,
+            notes: fullNotes || null,
+            subtotal,
+            tax,
+            total,
+            status: 'pending',
+            payment_status: 'pending',
+            payment_method: 'cash',
+          },
+          items: orderItems,
+        });
+
+        // Save order to local history
+        saveOrderToHistory({
+          orderNumber: order.order_number,
+          orderType,
+          total,
+          paymentMethod: 'cash',
+          paymentStatus: 'pending',
+          items: cart.map((item) => ({
+            name: item.menuItem.name,
+            quantity: item.quantity,
+            price:
+              (item.selectedSize?.price ??
+                Number(item.menuItem.price) + item.selectedAddons.reduce((sum, a) => sum + a.price, 0)) *
+              item.quantity,
+          })),
+          createdAt: new Date().toISOString(),
+        });
+
+        setOrderNumber(order.order_number);
+        setOrderPlaced(true);
+        resetCheckoutState();
+        return;
+      }
+
+      // Online / MoMo: DO NOT create an order yet.
+      // Create a pending order record, then redirect to Paystack. The real order is created ONLY after a successful payment.
+      toast.loading('Redirecting to payment...', { id: 'payment-redirect' });
+
+      const pendingPayload = {
         order: {
           order_type: orderType,
           customer_name: customerName || null,
@@ -260,66 +300,57 @@ export default function Order() {
           tax,
           total,
           status: 'pending',
-          payment_status: initialPaymentStatus,
-          payment_method: paymentMethod === 'online' ? 'card' : paymentMethod === 'momo' ? 'mtn-momo' : 'cash',
         },
         items: orderItems,
+        ui: {
+          orderType,
+        },
+      };
+
+      const { data: pendingInsert, error: pendingError } = await (supabase as any)
+        .from('pending_orders')
+        .insert({
+          payload: pendingPayload,
+          customer_email: customerEmail,
+          amount: total,
+          payment_channel: paymentMethod === 'momo' ? 'mobile_money' : 'card',
+        })
+        .select('id')
+        .single();
+
+      if (pendingError) throw pendingError;
+
+      const pendingOrderId = pendingInsert?.id as string | undefined;
+      if (!pendingOrderId) throw new Error('Could not create pending order');
+
+      const { data, error } = await supabase.functions.invoke('paystack-initialize', {
+        body: {
+          email: customerEmail,
+          amount: total,
+          pendingOrderId,
+          customerName: customerName || undefined,
+          customerPhone: customerPhone || undefined,
+          paymentChannel: paymentMethod === 'momo' ? 'mobile_money' : 'card',
+        },
       });
 
-      // Save order to local history
-      const orderHistoryItem = {
-        orderNumber: order.order_number,
-        orderType,
-        total,
-        paymentMethod: paymentMethod === 'online' ? 'card' : paymentMethod === 'momo' ? 'mtn-momo' : 'cash',
-        paymentStatus: paymentMethod === 'cash_on_delivery' ? 'pending' : 'pending',
-        items: cart.map(item => ({
-          name: item.menuItem.name,
-          quantity: item.quantity,
-          price: (item.selectedSize?.price ?? Number(item.menuItem.price) + item.selectedAddons.reduce((sum, a) => sum + a.price, 0)) * item.quantity,
-        })),
-        createdAt: new Date().toISOString(),
-      };
-      saveOrderToHistory(orderHistoryItem);
+      toast.dismiss('payment-redirect');
 
-      // For cash payments, complete the order flow
-      if (paymentMethod === 'cash_on_delivery') {
-        setOrderNumber(order.order_number);
-        setOrderPlaced(true);
-        resetCheckoutState();
+      if (error) throw error;
+
+      if (data.success && data.authorization_url) {
+        // Store pending id in case user comes back
+        sessionStorage.setItem('pendingOrderId', pendingOrderId);
+
+        // Clear local state
+        setCart([]);
+        setCheckoutDialogOpen(false);
+        setCartOpen(false);
+
+        // Redirect to Paystack
+        window.location.href = data.authorization_url;
       } else {
-        // For online/momo payments, redirect to Paystack
-        toast.loading('Redirecting to payment...', { id: 'payment-redirect' });
-        
-        const { data, error } = await supabase.functions.invoke('paystack-initialize', {
-          body: {
-            email: customerEmail,
-            amount: total,
-            orderNumber: order.order_number,
-            customerName: customerName || undefined,
-            customerPhone: customerPhone || undefined,
-            paymentChannel: paymentMethod === 'momo' ? 'mobile_money' : 'card',
-          }
-        });
-
-        toast.dismiss('payment-redirect');
-
-        if (error) throw error;
-
-        if (data.success && data.authorization_url) {
-          // Store cart info in sessionStorage in case user comes back
-          sessionStorage.setItem('pendingOrderNumber', order.order_number);
-          
-          // Clear local state
-          setCart([]);
-          setCheckoutDialogOpen(false);
-          setCartOpen(false);
-          
-          // Redirect to Paystack
-          window.location.href = data.authorization_url;
-        } else {
-          throw new Error(data.error || 'Failed to initialize payment');
-        }
+        throw new Error(data.error || 'Failed to initialize payment');
       }
     } catch (error) {
       console.error('Checkout error:', error);
@@ -327,24 +358,19 @@ export default function Order() {
       const errorMessage = err?.message ? String(err.message) : '';
       const errorCode = err?.code ? String(err.code) : '';
       const errorDetails = err?.details ? String(err.details) : '';
-      // Check if it's a session timeout issue
+
       if (errorMessage.includes('violates row-level security') || errorMessage.includes('RLS')) {
-        toast.error(
-          'Your session has expired. Please refresh the page and try again.',
-          {
-            duration: 8000,
-            action: {
-              label: 'Refresh',
-              onClick: () => window.location.reload(),
-            },
-          }
-        );
+        toast.error('Your session has expired. Please refresh the page and try again.', {
+          duration: 8000,
+          action: {
+            label: 'Refresh',
+            onClick: () => window.location.reload(),
+          },
+        });
       } else {
         const technical = [errorCode, errorMessage, errorDetails].filter(Boolean).join(' • ');
         toast.error(
-          technical
-            ? `Order failed: ${technical}`
-            : 'Unable to process your order. Please try again or contact support if the issue persists.',
+          technical ? `Order failed: ${technical}` : 'Unable to process your order. Please try again or contact support if the issue persists.',
           { duration: 8000 }
         );
       }
