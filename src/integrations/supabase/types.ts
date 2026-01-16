@@ -175,6 +175,54 @@ export type Database = {
           },
         ]
       }
+      pending_orders: {
+        Row: {
+          amount: number | null
+          created_at: string
+          created_order_id: string | null
+          created_order_number: string | null
+          currency: string
+          customer_email: string | null
+          expires_at: string
+          id: string
+          payload: Json
+          payment_channel: string | null
+          reference: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          created_order_id?: string | null
+          created_order_number?: string | null
+          currency?: string
+          customer_email?: string | null
+          expires_at?: string
+          id?: string
+          payload: Json
+          payment_channel?: string | null
+          reference?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          created_order_id?: string | null
+          created_order_number?: string | null
+          currency?: string
+          customer_email?: string | null
+          expires_at?: string
+          id?: string
+          payload?: Json
+          payment_channel?: string | null
+          reference?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
