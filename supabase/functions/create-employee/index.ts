@@ -92,16 +92,16 @@ serve(async (req) => {
       );
     }
 
-    // Create profile for the new user
+    // Update profile for the new user (trigger may have created it already)
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
+      .upsert({
         user_id: newUser.user.id,
         full_name: fullName,
-      });
+      }, { onConflict: 'user_id' });
 
     if (profileError) {
-      console.error('Profile creation error:', profileError);
+      console.error('Profile update error:', profileError);
     }
 
     // Assign role to the new user

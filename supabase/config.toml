@@ -1,1 +1,13 @@
 project_id = "utsihuzjycluoxfjyduq"
+
+[functions.create-employee]
+verify_jwt = false
+
+[functions.delete-employee]
+verify_jwt = false
+
+[functions.create-demo-admin]
+verify_jwt = false
+
+[functions.get-employee-emails]
+verify_jwt = false
