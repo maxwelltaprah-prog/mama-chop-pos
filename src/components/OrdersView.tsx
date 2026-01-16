@@ -375,16 +375,15 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
                       onClick={() => openPaymentDialog(order)}
                     >
                       <Banknote className="w-4 h-4 mr-2" />
-                      Record
+                      Cash
                     </Button>
                     <Button 
-                      variant="outline" 
+                      variant="gradient" 
                       size="sm"
-                      className="border-primary text-primary hover:bg-primary/10"
                       onClick={() => openOnlinePaymentDialog(order)}
                     >
                       <Send className="w-4 h-4 mr-2" />
-                      Send Link
+                      MoMo/Card
                     </Button>
                   </>
                 )}

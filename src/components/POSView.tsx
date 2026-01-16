@@ -465,22 +465,12 @@ export function POSView() {
             <Button 
               variant="gradient" 
               className="h-14 text-base font-semibold"
-              onClick={() => handlePayment('mtn-momo')}
+              onClick={handleOnlinePayment}
             >
               <CreditCard className="w-5 h-5 mr-2" />
-              MoMo
+              MoMo/Card
             </Button>
           </div>
-          
-          {/* Send Payment Link Button */}
-          <Button 
-            variant="outline" 
-            className="w-full h-12 text-base font-semibold border-primary text-primary hover:bg-primary/10"
-            onClick={handleOnlinePayment}
-          >
-            <Send className="w-5 h-5 mr-2" />
-            Send Payment Link
-          </Button>
         </div>
       )}
     </>
