@@ -56,6 +56,7 @@ export default function Order() {
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash_on_delivery'>('cash_on_delivery');
 
   const { data: menuItems = [], isLoading } = useMenuItems();
   const createOrder = useCreateCustomerOrder();
@@ -187,7 +188,8 @@ export default function Order() {
         tax,
         total,
         status: 'pending',
-        payment_status: 'pending',
+        payment_status: paymentMethod === 'online' ? 'paid' : 'pending',
+        payment_method: paymentMethod === 'online' ? 'online' : 'cash',
       });
 
       // Create order items
@@ -221,6 +223,7 @@ export default function Order() {
       setDeliveryAddress('');
       setDeliveryArea('');
       setOrderType('takeaway');
+      setPaymentMethod('cash_on_delivery');
     } catch (error) {
       toast.error('Failed to place order. Please try again.');
     }
@@ -242,7 +245,11 @@ export default function Order() {
             <p className="text-2xl font-bold font-mono">{orderNumber}</p>
           </div>
           <p className="text-sm text-muted-foreground mb-6">
-            Please keep this number for reference. You'll be notified when your order is ready.
+            {paymentMethod === 'cash_on_delivery' ? (
+              <>Please keep this number for reference. Pay the cashier or delivery rider when you receive your order.</>
+            ) : (
+              <>Payment received! Your order is being prepared.</>
+            )}
           </p>
           <div className="space-y-3">
             <Link to="/track" className="block">
@@ -723,6 +730,41 @@ export default function Order() {
               />
             </div>
 
+            {/* Payment Method Selection */}
+            {(orderType === 'takeaway' || orderType === 'delivery') && (
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('online')}
+                    className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
+                      paymentMethod === 'online' 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-muted hover:border-primary/50'
+                    }`}
+                  >
+                    <span className="text-xl">💳</span>
+                    <span className="text-sm font-medium">Pay Online</span>
+                    <span className="text-xs text-muted-foreground">Pay now</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('cash_on_delivery')}
+                    className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
+                      paymentMethod === 'cash_on_delivery' 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-muted hover:border-primary/50'
+                    }`}
+                  >
+                    <span className="text-xl">💵</span>
+                    <span className="text-sm font-medium">Pay on {orderType === 'delivery' ? 'Delivery' : 'Pickup'}</span>
+                    <span className="text-xs text-muted-foreground">Pay when you receive</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="bg-muted rounded-lg p-4 space-y-2">
               <div className="flex justify-between">
                 <span>Subtotal</span>
@@ -736,6 +778,16 @@ export default function Order() {
                 <span>Total</span>
                 <span>{formatCurrency(cartTotal * 1.15)}</span>
               </div>
+              {paymentMethod === 'online' && (orderType === 'takeaway' || orderType === 'delivery') && (
+                <p className="text-xs text-success flex items-center gap-1 pt-1">
+                  <span>✓</span> Payment will be recorded automatically
+                </p>
+              )}
+              {paymentMethod === 'cash_on_delivery' && (orderType === 'takeaway' || orderType === 'delivery') && (
+                <p className="text-xs text-muted-foreground pt-1">
+                  💡 Pay to the cashier or delivery rider
+                </p>
+              )}
             </div>
           </div>
 
