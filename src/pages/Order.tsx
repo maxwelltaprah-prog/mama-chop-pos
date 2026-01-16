@@ -3,7 +3,7 @@ import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin, Loade
 import { Link, useSearchParams } from 'react-router-dom';
 import { saveOrderToHistory } from './OrderHistory';
 import { useMenuItems, MenuItemRow, MenuItemSize, MenuItemAddon } from '@/hooks/useMenuItems';
-import { useCreateCustomerOrder, useCreateOrderItem } from '@/hooks/useOrders';
+import { useCreateCustomerOrder } from '@/hooks/useOrders';
 import { formatCurrency, categories } from '@/lib/data';
 import { PromoBanner } from '@/components/PromoBanner';
 import { supabase } from '@/integrations/supabase/client';
@@ -67,7 +67,6 @@ export default function Order() {
 
   const { data: menuItems = [], isLoading } = useMenuItems();
   const createOrder = useCreateCustomerOrder();
-  const createOrderItem = useCreateOrderItem();
 
   // Check for payment success from Paystack redirect
   useEffect(() => {
@@ -232,27 +231,13 @@ export default function Order() {
       // For online/momo payments, set status to pending until payment is verified
       const initialPaymentStatus = (paymentMethod === 'online' || paymentMethod === 'momo') ? 'pending' : 'pending';
 
-      const order = await createOrder.mutateAsync({
-        order_type: orderType,
-        customer_name: customerName || null,
-        customer_phone: customerPhone || null,
-        notes: fullNotes || null,
-        subtotal,
-        tax,
-        total,
-        status: 'pending',
-        payment_status: initialPaymentStatus,
-        payment_method: paymentMethod === 'online' ? 'card' : paymentMethod === 'momo' ? 'mtn-momo' : 'cash',
-      });
-
-      // Create order items
-      for (const item of cart) {
+      // Prepare order items
+      const orderItems = cart.map(item => {
         const basePrice = item.selectedSize?.price ?? Number(item.menuItem.price);
         const addonsPrice = item.selectedAddons.reduce((sum, addon) => sum + addon.price, 0);
         const unitPrice = basePrice + addonsPrice;
 
-        await createOrderItem.mutateAsync({
-          order_id: order.id,
+        return {
           menu_item_id: item.menuItem.id,
           quantity: item.quantity,
           unit_price: unitPrice,
@@ -262,8 +247,24 @@ export default function Order() {
             ? JSON.parse(JSON.stringify(item.selectedAddons))
             : null,
           notes: item.notes || null,
-        });
-      }
+        };
+      });
+
+      const order = await createOrder.mutateAsync({
+        order: {
+          order_type: orderType,
+          customer_name: customerName || null,
+          customer_phone: customerPhone || null,
+          notes: fullNotes || null,
+          subtotal,
+          tax,
+          total,
+          status: 'pending',
+          payment_status: initialPaymentStatus,
+          payment_method: paymentMethod === 'online' ? 'card' : paymentMethod === 'momo' ? 'mtn-momo' : 'cash',
+        },
+        items: orderItems,
+      });
 
       // Save order to local history
       const orderHistoryItem = {
