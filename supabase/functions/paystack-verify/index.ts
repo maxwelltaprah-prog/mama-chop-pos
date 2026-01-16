@@ -48,9 +48,15 @@ serve(async (req) => {
     const transaction = data.data;
     const isSuccessful = transaction.status === 'success';
     
-    // Extract order number from reference (format: EK-{orderNumber}-{timestamp})
-    const orderNumberMatch = reference.match(/^EK-([^-]+)-/);
-    const orderNumber = orderNumberMatch ? orderNumberMatch[1] : null;
+    // Get order number from metadata (most reliable) or extract from reference
+    let orderNumber = transaction.metadata?.order_number;
+    
+    // Fallback: Extract order number from reference (format: EK-{orderNumber}-{timestamp})
+    // Order number format is ORD-YYMMDD-XXX
+    if (!orderNumber) {
+      const orderNumberMatch = reference.match(/^EK-(ORD-\d{6}-\d+)-/);
+      orderNumber = orderNumberMatch ? orderNumberMatch[1] : null;
+    }
 
     console.log('Transaction status:', transaction.status, 'Order:', orderNumber);
 
