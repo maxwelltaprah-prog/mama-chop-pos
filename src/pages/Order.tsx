@@ -52,7 +52,7 @@ export default function Order() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
-  const [orderType, setOrderType] = useState<'dine-in' | 'takeaway' | 'delivery'>('takeaway');
+  const [orderType, setOrderType] = useState<'dine-in' | 'takeaway'>('takeaway');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryArea, setDeliveryArea] = useState('');
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
@@ -199,21 +199,6 @@ export default function Order() {
   const handleCheckout = async () => {
     if (cart.length === 0) return;
 
-    // Validate delivery requirements
-    if (orderType === 'delivery') {
-      if (!deliveryAddress.trim()) {
-        toast.error('Please enter a delivery address');
-        return;
-      }
-      if (!customerName.trim()) {
-        toast.error('Please enter your name for delivery');
-        return;
-      }
-      if (!customerPhone.trim()) {
-        toast.error('Please enter your phone number for delivery');
-        return;
-      }
-    }
 
     // Validate email for online payments
     if ((paymentMethod === 'online' || paymentMethod === 'momo') && !customerEmail.trim()) {
@@ -229,12 +214,7 @@ export default function Order() {
       const tax = subtotal * TAX_RATE;
       const total = subtotal + tax;
 
-      // Build notes with delivery address if applicable
       let fullNotes = orderNotes || '';
-      if (orderType === 'delivery' && deliveryAddress) {
-        const deliveryInfo = `📍 Delivery Address: ${deliveryAddress}${deliveryArea ? ` (${deliveryArea})` : ''}`;
-        fullNotes = fullNotes ? `${deliveryInfo}\n\n${fullNotes}` : deliveryInfo;
-      }
 
       // For online/momo payments, set status to pending until payment is verified
       const initialPaymentStatus = (paymentMethod === 'online' || paymentMethod === 'momo') ? 'pending' : 'pending';
@@ -764,53 +744,11 @@ export default function Order() {
                   <span className="text-xl">📦</span>
                   <span className="text-sm font-medium">Takeaway</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setOrderType('delivery')}
-                  className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
-                    orderType === 'delivery' 
-                      ? 'border-primary bg-primary/10' 
-                      : 'border-muted hover:border-primary/50'
-                  }`}
-                >
-                  <span className="text-xl">🚴</span>
-                  <span className="text-sm font-medium">Delivery</span>
-                </button>
               </div>
             </div>
 
-            {/* Delivery Address Fields */}
-            {orderType === 'delivery' && (
-              <div className="space-y-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                <div className="flex items-center gap-2 text-primary">
-                  <MapPin className="w-4 h-4" />
-                  <span className="text-sm font-medium">Delivery Details</span>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="deliveryAddress">Delivery Address *</Label>
-                  <Textarea
-                    id="deliveryAddress"
-                    placeholder="Enter your full delivery address..."
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    rows={2}
-                    className="resize-none"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="deliveryArea">Area/Landmark (Optional)</Label>
-                  <Input
-                    id="deliveryArea"
-                    placeholder="e.g., Near XYZ Mall, Osu"
-                    value={deliveryArea}
-                    onChange={(e) => setDeliveryArea(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-
             <div className="space-y-2">
-              <Label htmlFor="customerName">{orderType === 'delivery' ? 'Name *' : 'Name (Optional)'}</Label>
+              <Label htmlFor="customerName">Name (Optional)</Label>
               <Input
                 id="customerName"
                 placeholder="Your name"
@@ -820,7 +758,7 @@ export default function Order() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="customerPhone">{orderType === 'delivery' ? 'Phone Number *' : 'Phone Number (Optional)'}</Label>
+              <Label htmlFor="customerPhone">Phone Number (Optional)</Label>
               <Input
                 id="customerPhone"
                 type="tel"
@@ -831,7 +769,7 @@ export default function Order() {
             </div>
 
             {/* Email for online payments */}
-            {(paymentMethod === 'online' || paymentMethod === 'momo') && (orderType === 'takeaway' || orderType === 'delivery') && (
+            {(paymentMethod === 'online' || paymentMethod === 'momo') && (
               <div className="space-y-2">
                 <Label htmlFor="customerEmail">Email Address *</Label>
                 <Input
@@ -857,7 +795,7 @@ export default function Order() {
             </div>
 
             {/* Payment Method Selection */}
-            {(orderType === 'takeaway' || orderType === 'delivery') && (
+            {orderType === 'takeaway' && (
               <div className="space-y-2">
                 <Label>Payment Method</Label>
                 <div className="grid grid-cols-3 gap-2">
@@ -898,7 +836,7 @@ export default function Order() {
                   >
                     <span className="text-xl">💵</span>
                     <span className="text-sm font-medium">Cash</span>
-                    <span className="text-xs text-muted-foreground">{orderType === 'delivery' ? 'On delivery' : 'On pickup'}</span>
+                    <span className="text-xs text-muted-foreground">On pickup</span>
                   </button>
                 </div>
               </div>
@@ -917,17 +855,17 @@ export default function Order() {
                 <span>Total</span>
                 <span>{formatCurrency(cartTotal * 1.15)}</span>
               </div>
-              {(paymentMethod === 'online' || paymentMethod === 'momo') && (orderType === 'takeaway' || orderType === 'delivery') && (
+              {(paymentMethod === 'online' || paymentMethod === 'momo') && orderType === 'takeaway' && (
                 <p className="text-xs text-success flex items-center gap-1 pt-1">
                   <span>✓</span> Payment will be recorded automatically
                 </p>
               )}
-              {paymentMethod === 'cash_on_delivery' && (orderType === 'takeaway' || orderType === 'delivery') && (
+              {paymentMethod === 'cash_on_delivery' && orderType === 'takeaway' && (
                 <p className="text-xs text-muted-foreground pt-1">
-                  💡 Pay to the cashier or delivery rider
+                  💡 Pay to the cashier
                 </p>
               )}
-              {paymentMethod === 'momo' && (orderType === 'takeaway' || orderType === 'delivery') && (
+              {paymentMethod === 'momo' && orderType === 'takeaway' && (
                 <p className="text-xs text-muted-foreground pt-1">
                   📲 You'll receive a prompt on your phone to complete payment
                 </p>
