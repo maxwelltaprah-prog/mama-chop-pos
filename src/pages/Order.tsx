@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useMenuItems, MenuItemRow, MenuItemSize, MenuItemAddon } from '@/hooks/useMenuItems';
 import { useCreateCustomerOrder, useCreateOrderItem } from '@/hooks/useOrders';
 import { formatCurrency, categories } from '@/lib/data';
+import { PromoBanner } from '@/components/PromoBanner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -289,6 +290,11 @@ export default function Order() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      {/* Promo Banner */}
+      <div className="pt-4">
+        <PromoBanner />
+      </div>
+
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-4">
