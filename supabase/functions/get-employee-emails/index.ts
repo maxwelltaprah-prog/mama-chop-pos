@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface UserInfo {
+  email: string;
+  last_sign_in_at: string | null;
+  created_at: string | null;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -53,7 +59,7 @@ serve(async (req) => {
 
     if (!roleData || roleData.role !== 'admin') {
       return new Response(
-        JSON.stringify({ error: 'Only admins can view employee emails' }),
+        JSON.stringify({ error: 'Only admins can view employee details' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -68,18 +74,22 @@ serve(async (req) => {
       );
     }
 
-    // Fetch emails for all user IDs
-    const emails: Record<string, string> = {};
+    // Fetch user info for all user IDs
+    const users: Record<string, UserInfo> = {};
     
     for (const userId of userIds) {
       const { data: userData, error: fetchError } = await supabaseAdmin.auth.admin.getUserById(userId);
       if (!fetchError && userData.user) {
-        emails[userId] = userData.user.email || '';
+        users[userId] = {
+          email: userData.user.email || '',
+          last_sign_in_at: userData.user.last_sign_in_at || null,
+          created_at: userData.user.created_at || null,
+        };
       }
     }
 
     return new Response(
-      JSON.stringify({ emails }),
+      JSON.stringify({ users }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
