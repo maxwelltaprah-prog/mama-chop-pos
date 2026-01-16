@@ -146,7 +146,7 @@ export default function Order() {
     if (cart.length === 0) return;
 
     try {
-      const TAX_RATE = 0.05;
+      const TAX_RATE = 0.15; // 15% VAT
       const subtotal = cartTotal;
       const tax = subtotal * TAX_RATE;
       const total = subtotal + tax;

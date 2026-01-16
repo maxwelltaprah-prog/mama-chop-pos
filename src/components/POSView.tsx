@@ -98,7 +98,8 @@ export function POSView() {
   };
 
   const subtotal = cart.reduce((sum, c) => sum + (Number(c.item.price) * c.quantity), 0);
-  const tax = subtotal * 0.05;
+  const TAX_RATE = 0.15; // 15% VAT
+  const tax = subtotal * TAX_RATE;
   const total = subtotal + tax;
 
   const handlePayment = (method: PaymentMethod) => {
@@ -326,9 +327,9 @@ export function POSView() {
                     <SelectValue placeholder="Select table" />
                   </SelectTrigger>
                   <SelectContent>
-                    {tables.filter(t => t.status === 'available').map(table => (
+                    {tables.map(table => (
                       <SelectItem key={table.id} value={table.id}>
-                        {table.name} ({table.seats} seats)
+                        {table.name} ({table.seats} seats) {table.status !== 'available' ? `[${table.status}]` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -435,7 +436,7 @@ export function POSView() {
                 <span className="font-medium">{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tax (5%)</span>
+                <span className="text-muted-foreground">VAT (15%)</span>
                 <span className="font-medium">{formatCurrency(tax)}</span>
               </div>
               <div className="flex justify-between text-xl font-bold pt-3 border-t border-border">

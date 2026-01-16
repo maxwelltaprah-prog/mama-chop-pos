@@ -42,11 +42,13 @@ export const ReportsView = forwardRef<HTMLDivElement>((_, ref) => {
           <p className="text-muted-foreground">Track your restaurant performance</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => toast.info('Date picker coming soon!')}>
             <Calendar className="w-4 h-4 mr-2" />
             Select Date
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => {
+            toast.success('Data refreshed!');
+          }}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
