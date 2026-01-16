@@ -3,13 +3,70 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 
+// Request browser notification permission
+async function requestNotificationPermission(): Promise<boolean> {
+  if (!('Notification' in window)) {
+    console.log('Browser does not support notifications');
+    return false;
+  }
+  
+  if (Notification.permission === 'granted') {
+    return true;
+  }
+  
+  if (Notification.permission !== 'denied') {
+    const permission = await Notification.requestPermission();
+    return permission === 'granted';
+  }
+  
+  return false;
+}
+
+// Show browser notification
+function showBrowserNotification(order: any) {
+  if (Notification.permission !== 'granted') return;
+  
+  const typeEmoji = order.order_type === 'delivery' ? '🚚' : 
+                   order.order_type === 'takeaway' ? '📦' : '🍽️';
+  
+  const notification = new Notification(`${typeEmoji} New Online Order!`, {
+    body: `${order.order_number || 'Processing...'} • ${order.customer_name || 'Guest'} • ${order.order_type?.toUpperCase()}`,
+    icon: '/favicon.ico',
+    tag: `order-${order.id}`, // Prevents duplicate notifications
+    requireInteraction: true, // Keeps notification visible until user interacts
+  });
+  
+  // Focus the tab when notification is clicked
+  notification.onclick = () => {
+    window.focus();
+    notification.close();
+    window.dispatchEvent(new CustomEvent('navigate-to-orders'));
+  };
+}
+
 export function useOrderNotifications() {
   const queryClient = useQueryClient();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
 
   const clearNotifications = useCallback(() => {
     setUnreadCount(0);
+  }, []);
+
+  const requestPermission = useCallback(async () => {
+    const granted = await requestNotificationPermission();
+    setNotificationPermission(granted ? 'granted' : Notification.permission);
+    return granted;
+  }, []);
+
+  useEffect(() => {
+    // Check initial permission status
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    } else {
+      setNotificationPermission('unsupported');
+    }
   }, []);
 
   useEffect(() => {
@@ -44,6 +101,9 @@ export function useOrderNotifications() {
             // Ignore audio play errors (user hasn't interacted with page)
           });
           
+          // Show browser push notification (works in background)
+          showBrowserNotification(newOrder);
+          
           // Determine order type emoji
           const typeEmoji = newOrder.order_type === 'delivery' ? '🚚' : 
                            newOrder.order_type === 'takeaway' ? '📦' : '🍽️';
@@ -71,5 +131,5 @@ export function useOrderNotifications() {
     };
   }, [queryClient]);
 
-  return { unreadCount, clearNotifications };
+  return { unreadCount, clearNotifications, notificationPermission, requestPermission };
 }
