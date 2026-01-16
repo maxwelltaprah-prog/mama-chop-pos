@@ -322,8 +322,10 @@ export default function Order() {
       }
     } catch (error) {
       console.error('Checkout error:', error);
-      const errorMessage = error instanceof Error ? error.message : '';
-      
+      const err: any = error;
+      const errorMessage = err?.message ? String(err.message) : '';
+      const errorCode = err?.code ? String(err.code) : '';
+      const errorDetails = err?.details ? String(err.details) : '';
       // Check if it's a session timeout issue
       if (errorMessage.includes('violates row-level security') || errorMessage.includes('RLS')) {
         toast.error(
@@ -337,9 +339,12 @@ export default function Order() {
           }
         );
       } else {
+        const technical = [errorCode, errorMessage, errorDetails].filter(Boolean).join(' • ');
         toast.error(
-          'Unable to process your order. Please try again or contact support if the issue persists.',
-          { duration: 6000 }
+          technical
+            ? `Order failed: ${technical}`
+            : 'Unable to process your order. Please try again or contact support if the issue persists.',
+          { duration: 8000 }
         );
       }
     } finally {
