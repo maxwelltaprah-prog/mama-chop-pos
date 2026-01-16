@@ -42,6 +42,13 @@ function generateClientOrderNumber() {
   return `ORD-${dateStr}-${rand}`;
 }
 
+// Check if error is a duplicate key violation (23505)
+function isDuplicateKeyError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { code?: string; message?: string };
+  return err.code === '23505' || (err.message?.includes('23505') ?? false);
+}
+
 export function useOrders() {
   const queryClient = useQueryClient();
 
@@ -98,18 +105,29 @@ export function useCreateOrder() {
       order: Omit<OrderInsert, 'order_number' | 'created_by'>;
       items: Omit<OrderItemInsert, 'order_id'>[];
     }) => {
-      const orderNumber = generateClientOrderNumber();
+      const attemptInsert = async (orderNumber: string) => {
+        const { data: insertData, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            ...order,
+            order_number: orderNumber,
+            created_by: user?.id,
+          })
+          .select('id, order_number')
+          .single();
 
-      // Create order (client-generated order_number to prevent UNIQUE collisions like 'TEMP')
-      const { data: insertData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          ...order,
-          order_number: orderNumber,
-          created_by: user?.id,
-        })
-        .select('id, order_number')
-        .single();
+        return { insertData, orderError };
+      };
+
+      let orderNumber = generateClientOrderNumber();
+      let { insertData, orderError } = await attemptInsert(orderNumber);
+
+      // Retry once on duplicate key error (23505)
+      if (orderError && isDuplicateKeyError(orderError)) {
+        console.warn('Duplicate order_number, retrying with new number...');
+        orderNumber = generateClientOrderNumber();
+        ({ insertData, orderError } = await attemptInsert(orderNumber));
+      }
 
       if (orderError) throw orderError;
 
@@ -155,17 +173,28 @@ export function useCreateCustomerOrder() {
       order: Omit<OrderInsert, 'order_number' | 'created_by'>;
       items: Omit<OrderItemInsert, 'order_id'>[];
     }) => {
-      const clientOrderNumber = generateClientOrderNumber();
+      const attemptInsert = async (orderNumber: string) => {
+        const { data: insertData, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            ...order,
+            order_number: orderNumber,
+            created_by: null,
+          })
+          .select('id, order_number');
 
-      // Insert order; select may be blocked by RLS, but insert still succeeds.
-      const { data: insertData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          ...order,
-          order_number: clientOrderNumber,
-          created_by: null,
-        })
-        .select('id, order_number');
+        return { insertData, orderError };
+      };
+
+      let clientOrderNumber = generateClientOrderNumber();
+      let { insertData, orderError } = await attemptInsert(clientOrderNumber);
+
+      // Retry once on duplicate key error (23505)
+      if (orderError && isDuplicateKeyError(orderError)) {
+        console.warn('Duplicate order_number, retrying with new number...');
+        clientOrderNumber = generateClientOrderNumber();
+        ({ insertData, orderError } = await attemptInsert(clientOrderNumber));
+      }
 
       if (orderError) throw orderError;
 
