@@ -12,6 +12,8 @@ export interface Employee {
   phone: string | null;
   role: AppRole;
   created_at: string;
+  last_sign_in_at: string | null;
+  account_created_at: string | null;
 }
 
 export function useEmployees() {
@@ -35,24 +37,27 @@ export function useEmployees() {
 
       if (profilesError) throw profilesError;
 
-      // Fetch employee emails from edge function
-      const { data: emailsData } = await supabase.functions.invoke('get-employee-emails', {
+      // Fetch employee details from edge function (email, last sign in, etc.)
+      const { data: usersData } = await supabase.functions.invoke('get-employee-emails', {
         body: { userIds },
       });
 
-      const emailMap: Record<string, string> = emailsData?.emails || {};
+      const usersMap: Record<string, { email: string; last_sign_in_at: string | null; created_at: string | null }> = usersData?.users || {};
 
       // Combine the data
       const employees: Employee[] = roles.map(role => {
         const profile = profiles?.find(p => p.user_id === role.user_id);
+        const userInfo = usersMap[role.user_id];
         return {
           id: role.id,
           user_id: role.user_id,
-          email: emailMap[role.user_id] || '',
+          email: userInfo?.email || '',
           full_name: profile?.full_name || null,
           phone: profile?.phone || null,
           role: role.role as AppRole,
           created_at: role.created_at,
+          last_sign_in_at: userInfo?.last_sign_in_at || null,
+          account_created_at: userInfo?.created_at || null,
         };
       });
 

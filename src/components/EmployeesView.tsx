@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Plus, UserCog, Trash2, Shield, ShoppingCart, ChefHat, Search, Mail, Phone, User } from 'lucide-react';
-import { useEmployees, useCreateEmployee, useUpdateEmployeeRole, useDeleteEmployee, AppRole } from '@/hooks/useEmployees';
+import { Plus, UserCog, Trash2, Shield, ShoppingCart, ChefHat, Search, Mail, Phone, User, Eye } from 'lucide-react';
+import { useEmployees, useCreateEmployee, useUpdateEmployeeRole, useDeleteEmployee, AppRole, Employee } from '@/hooks/useEmployees';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { EmployeeDetailsDrawer } from './EmployeeDetailsDrawer';
 
 const roleConfig: Record<AppRole, { label: string; icon: typeof Shield; color: string; description: string }> = {
   admin: {
@@ -59,6 +60,8 @@ export function EmployeesView() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string | null>(null);
+  const [detailsEmployee, setDetailsEmployee] = useState<Employee | null>(null);
+  const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
   const [newEmployee, setNewEmployee] = useState({
     email: '',
     password: '',
@@ -95,6 +98,11 @@ export function EmployeesView() {
 
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
     await updateRole.mutateAsync({ userId, role: newRole });
+  };
+
+  const handleViewDetails = (employee: Employee) => {
+    setDetailsEmployee(employee);
+    setDetailsDrawerOpen(true);
   };
 
   return (
@@ -193,17 +201,27 @@ export function EmployeesView() {
                         </Badge>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => {
-                        setSelectedEmployee(employee.user_id);
-                        setDeleteDialogOpen(true);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleViewDetails(employee)}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          setSelectedEmployee(employee.user_id);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -362,6 +380,13 @@ export function EmployeesView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Employee Details Drawer */}
+      <EmployeeDetailsDrawer
+        employee={detailsEmployee}
+        open={detailsDrawerOpen}
+        onOpenChange={setDetailsDrawerOpen}
+      />
     </div>
   );
 }
