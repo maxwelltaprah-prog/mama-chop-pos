@@ -5,48 +5,61 @@ import {
   DollarSign, 
   Users,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Loader2
 } from 'lucide-react';
-import { todayStats, sampleOrders, formatCurrency, getStatusColor } from '@/lib/data';
+import { formatCurrency, getStatusColor, OrderStatus } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-const statCards = [
-  {
-    title: "Today's Sales",
-    value: formatCurrency(todayStats.totalSales),
-    change: '+12.5%',
-    changeType: 'positive' as const,
-    icon: DollarSign,
-    color: 'gradient-primary',
-  },
-  {
-    title: 'Total Orders',
-    value: todayStats.totalOrders.toString(),
-    change: '+8.2%',
-    changeType: 'positive' as const,
-    icon: ShoppingBag,
-    color: 'bg-accent',
-  },
-  {
-    title: 'Avg Order Value',
-    value: formatCurrency(todayStats.averageOrderValue),
-    change: '-2.1%',
-    changeType: 'negative' as const,
-    icon: TrendingUp,
-    color: 'bg-success',
-  },
-  {
-    title: 'Active Tables',
-    value: '3/8',
-    change: 'Occupied',
-    changeType: 'neutral' as const,
-    icon: Users,
-    color: 'bg-secondary',
-  },
-];
+import { Skeleton } from '@/components/ui/skeleton';
+import { 
+  useDashboardStats, 
+  useTopSellingItems, 
+  useRecentOrders,
+  useActiveTablesCount 
+} from '@/hooks/useDashboardStats';
 
 export const Dashboard = forwardRef<HTMLDivElement>((_, ref) => {
+  const { data: stats, isLoading: statsLoading } = useDashboardStats();
+  const { data: topItems, isLoading: topItemsLoading } = useTopSellingItems();
+  const { data: recentOrders, isLoading: ordersLoading } = useRecentOrders();
+  const { totalTables, occupiedTables } = useActiveTablesCount();
+
+  const statCards = [
+    {
+      title: "Today's Sales",
+      value: stats ? formatCurrency(stats.totalSales) : '---',
+      change: stats?.totalSales > 0 ? 'Live' : 'No sales yet',
+      changeType: stats?.totalSales > 0 ? 'positive' : 'neutral' as const,
+      icon: DollarSign,
+      color: 'gradient-primary',
+    },
+    {
+      title: 'Total Orders',
+      value: stats?.totalOrders?.toString() || '0',
+      change: stats?.totalOrders > 0 ? 'Today' : 'No orders',
+      changeType: stats?.totalOrders > 0 ? 'positive' : 'neutral' as const,
+      icon: ShoppingBag,
+      color: 'bg-accent',
+    },
+    {
+      title: 'Avg Order Value',
+      value: stats ? formatCurrency(stats.averageOrderValue) : '---',
+      change: stats?.averageOrderValue > 0 ? 'Per order' : 'N/A',
+      changeType: 'neutral' as const,
+      icon: TrendingUp,
+      color: 'bg-success',
+    },
+    {
+      title: 'Active Tables',
+      value: `${occupiedTables}/${totalTables}`,
+      change: occupiedTables > 0 ? 'Occupied' : 'All free',
+      changeType: occupiedTables > 0 ? 'positive' : 'neutral' as const,
+      icon: Users,
+      color: 'bg-secondary',
+    },
+  ];
+
   return (
     <div ref={ref} className="p-4 lg:p-6 space-y-6 animate-fade-in">
       {/* Header */}
@@ -80,7 +93,11 @@ export const Dashboard = forwardRef<HTMLDivElement>((_, ref) => {
                 <div className="flex items-start justify-between">
                   <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">{stat.title}</p>
-                    <p className="text-2xl lg:text-3xl font-display font-bold">{stat.value}</p>
+                    {statsLoading ? (
+                      <Skeleton className="h-8 w-24" />
+                    ) : (
+                      <p className="text-2xl lg:text-3xl font-display font-bold">{stat.value}</p>
+                    )}
                     <div className="flex items-center gap-1 text-sm">
                       {stat.changeType === 'positive' && (
                         <ArrowUpRight className="w-4 h-4 text-success" />
@@ -115,37 +132,50 @@ export const Dashboard = forwardRef<HTMLDivElement>((_, ref) => {
         <Card className="animate-fade-in" style={{ animationDelay: '400ms' }}>
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center justify-between">
-              <span>Recent Orders</span>
-              <Badge variant="secondary">{sampleOrders.length} active</Badge>
+              <span>Active Orders</span>
+              <Badge variant="secondary">
+                {ordersLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : `${recentOrders?.length || 0} active`}
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {sampleOrders.map((order) => (
-              <div 
-                key={order.id}
-                className="flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <span className="text-lg">
-                      {order.type === 'dine-in' ? '🍽️' : order.type === 'takeaway' ? '📦' : '🚴'}
-                    </span>
+            {ordersLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))
+            ) : recentOrders && recentOrders.length > 0 ? (
+              recentOrders.map((order) => (
+                <div 
+                  key={order.id}
+                  className="flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <span className="text-lg">
+                        {order.order_type === 'dine-in' ? '🍽️' : order.order_type === 'takeaway' ? '📦' : '🚚'}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium">{order.order_number}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {order.customer_name || 'Walk-in'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{order.id}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {order.type === 'dine-in' ? `Table ${order.tableNumber}` : order.customerName}
-                    </p>
+                  <div className="text-right">
+                    <p className="font-semibold">{formatCurrency(order.total)}</p>
+                    <Badge className={getStatusColor(order.status as OrderStatus)} variant="secondary">
+                      {order.status}
+                    </Badge>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold">{formatCurrency(order.total)}</p>
-                  <Badge className={getStatusColor(order.status)} variant="secondary">
-                    {order.status}
-                  </Badge>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <ShoppingBag className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No active orders</p>
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
 
@@ -158,28 +188,39 @@ export const Dashboard = forwardRef<HTMLDivElement>((_, ref) => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {todayStats.topSellingItems.map((item, index) => (
-              <div 
-                key={item.name}
-                className="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors"
-              >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
-                  index === 0 ? 'gradient-gold text-primary-foreground' : 
-                  index === 1 ? 'bg-muted text-foreground' : 
-                  index === 2 ? 'bg-accent/20 text-accent' : 
-                  'bg-muted/50 text-muted-foreground'
-                }`}>
-                  #{index + 1}
+            {topItemsLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))
+            ) : topItems && topItems.length > 0 ? (
+              topItems.map((item, index) => (
+                <div 
+                  key={item.name}
+                  className="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors"
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                    index === 0 ? 'gradient-gold text-primary-foreground' : 
+                    index === 1 ? 'bg-muted text-foreground' : 
+                    index === 2 ? 'bg-accent/20 text-accent' : 
+                    'bg-muted/50 text-muted-foreground'
+                  }`}>
+                    #{index + 1}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">{item.name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold">{item.count}</p>
+                    <p className="text-xs text-muted-foreground">sold</p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium">{item.name}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold">{item.count}</p>
-                  <p className="text-xs text-muted-foreground">sold</p>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <TrendingUp className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No sales data yet</p>
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
       </div>
@@ -190,14 +231,18 @@ export const Dashboard = forwardRef<HTMLDivElement>((_, ref) => {
           <CardTitle>Payment Breakdown</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
               <div className="w-12 h-12 rounded-xl bg-success/20 flex items-center justify-center">
                 <span className="text-2xl">💵</span>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Cash</p>
-                <p className="text-xl font-bold">{formatCurrency(todayStats.cashPayments)}</p>
+                {statsLoading ? (
+                  <Skeleton className="h-6 w-20" />
+                ) : (
+                  <p className="text-xl font-bold">{formatCurrency(stats?.cashPayments || 0)}</p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
@@ -206,7 +251,24 @@ export const Dashboard = forwardRef<HTMLDivElement>((_, ref) => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Mobile Money</p>
-                <p className="text-xl font-bold">{formatCurrency(todayStats.momoPayments)}</p>
+                {statsLoading ? (
+                  <Skeleton className="h-6 w-20" />
+                ) : (
+                  <p className="text-xl font-bold">{formatCurrency(stats?.momoPayments || 0)}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
+              <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                <span className="text-2xl">💳</span>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Card</p>
+                {statsLoading ? (
+                  <Skeleton className="h-6 w-20" />
+                ) : (
+                  <p className="text-xl font-bold">{formatCurrency(stats?.cardPayments || 0)}</p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-4 p-4 rounded-xl gradient-card border border-primary/20">
@@ -215,7 +277,11 @@ export const Dashboard = forwardRef<HTMLDivElement>((_, ref) => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-xl font-bold text-gradient">{formatCurrency(todayStats.totalSales)}</p>
+                {statsLoading ? (
+                  <Skeleton className="h-6 w-24" />
+                ) : (
+                  <p className="text-xl font-bold text-gradient">{formatCurrency(stats?.totalSales || 0)}</p>
+                )}
               </div>
             </div>
           </div>
