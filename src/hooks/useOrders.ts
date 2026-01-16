@@ -139,10 +139,13 @@ export function useCreateCustomerOrder() {
       order: Omit<OrderInsert, 'order_number' | 'created_by'>;
       items: Omit<OrderItemInsert, 'order_id'>[];
     }) => {
-      // Generate a client-side order number for display purposes
-      const clientOrderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
+      // Generate a unique order number using timestamp + random suffix
+      const now = new Date();
+      const dateStr = now.toISOString().slice(2, 10).replace(/-/g, '');
+      const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+      const clientOrderNumber = `ORD-${dateStr}-${randomSuffix}`;
       
-      // Insert order - using RPC or direct insert without expecting a response
+      // Pure INSERT without .select() to avoid RLS read restrictions
       // The database trigger will generate a proper order_number
       const { data: insertData, error: orderError } = await supabase
         .from('orders')
