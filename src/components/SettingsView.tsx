@@ -10,7 +10,11 @@ import { useTables } from '@/hooks/useTables';
 import { OrderQRCode } from '@/components/OrderQRCode';
 import { toast } from 'sonner';
 
-export function SettingsView() {
+interface SettingsViewProps {
+  onNavigate?: (view: string) => void;
+}
+
+export function SettingsView({ onNavigate }: SettingsViewProps) {
   const { data: settings, isLoading } = useSettings();
   const { data: tables } = useTables();
   const updateSettings = useUpdateSettings();
@@ -381,7 +385,11 @@ export function SettingsView() {
                 </div>
               ))}
             </div>
-            <Button variant="outline" className="w-full" onClick={() => toast.info('Staff management coming soon!')}>
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={() => onNavigate?.('employees')}
+            >
               Add Staff Member
             </Button>
           </CardContent>

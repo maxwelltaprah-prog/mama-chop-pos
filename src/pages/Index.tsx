@@ -29,7 +29,7 @@ const Index = () => {
       case 'reports':
         return <ReportsView />;
       case 'settings':
-        return <SettingsView />;
+        return <SettingsView onNavigate={setActiveView} />;
       default:
         return <Dashboard />;
     }
