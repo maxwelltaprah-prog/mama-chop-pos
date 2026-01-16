@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
-import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin, Loader2, CreditCard } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMenuItems, MenuItemRow, MenuItemSize, MenuItemAddon } from '@/hooks/useMenuItems';
 import { useCreateCustomerOrder, useCreateOrderItem } from '@/hooks/useOrders';
 import { formatCurrency, categories } from '@/lib/data';
 import { PromoBanner } from '@/components/PromoBanner';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,10 +59,57 @@ export default function Order() {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'momo' | 'cash_on_delivery'>('cash_on_delivery');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState('');
+
+  const [searchParams] = useSearchParams();
 
   const { data: menuItems = [], isLoading } = useMenuItems();
   const createOrder = useCreateCustomerOrder();
   const createOrderItem = useCreateOrderItem();
+
+  // Check for payment success from Paystack redirect
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment');
+    const reference = searchParams.get('reference');
+    
+    if (paymentStatus === 'success' && reference) {
+      // Verify the payment
+      verifyPaystackPayment(reference);
+    }
+  }, [searchParams]);
+
+  const verifyPaystackPayment = async (reference: string) => {
+    try {
+      setIsProcessingPayment(true);
+      toast.loading('Verifying payment...', { id: 'verify-payment' });
+      
+      const { data, error } = await supabase.functions.invoke('paystack-verify', {
+        body: { reference }
+      });
+
+      toast.dismiss('verify-payment');
+
+      if (error) throw error;
+
+      if (data.verified) {
+        setOrderNumber(data.transaction.order_number);
+        setOrderPlaced(true);
+        toast.success('Payment successful! Your order is confirmed.');
+        
+        // Clear URL params
+        window.history.replaceState({}, '', '/order');
+      } else {
+        toast.error('Payment could not be verified. Please contact support.');
+      }
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      toast.dismiss('verify-payment');
+      toast.error('Failed to verify payment. Please contact support if you were charged.');
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
 
   const availableItems = useMemo(() => 
     menuItems.filter(item => item.available),
@@ -167,7 +215,15 @@ export default function Order() {
       }
     }
 
+    // Validate email for online payments
+    if ((paymentMethod === 'online' || paymentMethod === 'momo') && !customerEmail.trim()) {
+      toast.error('Please enter your email for online payment');
+      return;
+    }
+
     try {
+      setIsProcessingPayment(true);
+      
       const TAX_RATE = 0.15; // 15% VAT
       const subtotal = cartTotal;
       const tax = subtotal * TAX_RATE;
@@ -180,6 +236,9 @@ export default function Order() {
         fullNotes = fullNotes ? `${deliveryInfo}\n\n${fullNotes}` : deliveryInfo;
       }
 
+      // For online/momo payments, set status to pending until payment is verified
+      const initialPaymentStatus = (paymentMethod === 'online' || paymentMethod === 'momo') ? 'pending' : 'pending';
+
       const order = await createOrder.mutateAsync({
         order_type: orderType,
         customer_name: customerName || null,
@@ -189,8 +248,8 @@ export default function Order() {
         tax,
         total,
         status: 'pending',
-        payment_status: paymentMethod === 'online' || paymentMethod === 'momo' ? 'paid' : 'pending',
-        payment_method: paymentMethod === 'online' ? 'online' : paymentMethod === 'momo' ? 'momo' : 'cash',
+        payment_status: initialPaymentStatus,
+        payment_method: paymentMethod === 'online' ? 'card' : paymentMethod === 'momo' ? 'momo' : 'cash',
       });
 
       // Create order items
@@ -213,21 +272,65 @@ export default function Order() {
         });
       }
 
-      setOrderNumber(order.order_number);
-      setOrderPlaced(true);
-      setCart([]);
-      setCheckoutDialogOpen(false);
-      setCartOpen(false);
-      setCustomerName('');
-      setCustomerPhone('');
-      setOrderNotes('');
-      setDeliveryAddress('');
-      setDeliveryArea('');
-      setOrderType('takeaway');
-      setPaymentMethod('cash_on_delivery');
+      // For cash payments, complete the order flow
+      if (paymentMethod === 'cash_on_delivery') {
+        setOrderNumber(order.order_number);
+        setOrderPlaced(true);
+        resetCheckoutState();
+      } else {
+        // For online/momo payments, redirect to Paystack
+        toast.loading('Redirecting to payment...', { id: 'payment-redirect' });
+        
+        const { data, error } = await supabase.functions.invoke('paystack-initialize', {
+          body: {
+            email: customerEmail,
+            amount: total,
+            orderNumber: order.order_number,
+            customerName: customerName || undefined,
+            customerPhone: customerPhone || undefined,
+            paymentChannel: paymentMethod === 'momo' ? 'mobile_money' : 'card',
+          }
+        });
+
+        toast.dismiss('payment-redirect');
+
+        if (error) throw error;
+
+        if (data.success && data.authorization_url) {
+          // Store cart info in sessionStorage in case user comes back
+          sessionStorage.setItem('pendingOrderNumber', order.order_number);
+          
+          // Clear local state
+          setCart([]);
+          setCheckoutDialogOpen(false);
+          setCartOpen(false);
+          
+          // Redirect to Paystack
+          window.location.href = data.authorization_url;
+        } else {
+          throw new Error(data.error || 'Failed to initialize payment');
+        }
+      }
     } catch (error) {
+      console.error('Checkout error:', error);
       toast.error('Failed to place order. Please try again.');
+    } finally {
+      setIsProcessingPayment(false);
     }
+  };
+
+  const resetCheckoutState = () => {
+    setCart([]);
+    setCheckoutDialogOpen(false);
+    setCartOpen(false);
+    setCustomerName('');
+    setCustomerPhone('');
+    setCustomerEmail('');
+    setOrderNotes('');
+    setDeliveryAddress('');
+    setDeliveryArea('');
+    setOrderType('takeaway');
+    setPaymentMethod('cash_on_delivery');
   };
 
   if (orderPlaced) {
@@ -727,6 +830,21 @@ export default function Order() {
               />
             </div>
 
+            {/* Email for online payments */}
+            {(paymentMethod === 'online' || paymentMethod === 'momo') && (orderType === 'takeaway' || orderType === 'delivery') && (
+              <div className="space-y-2">
+                <Label htmlFor="customerEmail">Email Address *</Label>
+                <Input
+                  id="customerEmail"
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Required for payment receipt</p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="orderNotes">Order Notes (Optional)</Label>
               <Textarea
@@ -818,23 +936,32 @@ export default function Order() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCheckoutDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setCheckoutDialogOpen(false)} disabled={isProcessingPayment}>
               Cancel
             </Button>
             <Button 
               variant="gradient" 
               onClick={handleCheckout}
-              disabled={createOrder.isPending}
+              disabled={createOrder.isPending || isProcessingPayment}
             >
-              {createOrder.isPending ? (
+              {(createOrder.isPending || isProcessingPayment) ? (
                 <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Placing Order...
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {isProcessingPayment ? 'Processing...' : 'Placing Order...'}
                 </span>
               ) : (
                 <>
-                  <Send className="w-4 h-4 mr-2" />
-                  Place Order
+                  {(paymentMethod === 'momo' || paymentMethod === 'online') && (orderType !== 'dine-in') ? (
+                    <>
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Pay {formatCurrency(cartTotal * 1.15)}
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Place Order
+                    </>
+                  )}
                 </>
               )}
             </Button>
