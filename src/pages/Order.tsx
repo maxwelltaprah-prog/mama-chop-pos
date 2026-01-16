@@ -49,6 +49,7 @@ export default function Order() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
+  const [orderType, setOrderType] = useState<'dine-in' | 'takeaway'>('takeaway');
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
@@ -152,7 +153,7 @@ export default function Order() {
       const total = subtotal + tax;
 
       const order = await createOrder.mutateAsync({
-        order_type: 'customer',
+        order_type: orderType,
         customer_name: customerName || null,
         customer_phone: customerPhone || null,
         notes: orderNotes || null,
@@ -191,6 +192,7 @@ export default function Order() {
       setCustomerName('');
       setCustomerPhone('');
       setOrderNotes('');
+      setOrderType('takeaway');
     } catch (error) {
       toast.error('Failed to place order. Please try again.');
     }
@@ -571,6 +573,37 @@ export default function Order() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {/* Order Type Selection */}
+            <div className="space-y-2">
+              <Label>Order Type</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setOrderType('dine-in')}
+                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    orderType === 'dine-in' 
+                      ? 'border-primary bg-primary/10' 
+                      : 'border-muted hover:border-primary/50'
+                  }`}
+                >
+                  <span className="text-2xl">🍽️</span>
+                  <span className="font-medium">Dine-in</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderType('takeaway')}
+                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
+                    orderType === 'takeaway' 
+                      ? 'border-primary bg-primary/10' 
+                      : 'border-muted hover:border-primary/50'
+                  }`}
+                >
+                  <span className="text-2xl">📦</span>
+                  <span className="font-medium">Takeaway</span>
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="customerName">Name (Optional)</Label>
               <Input
@@ -609,12 +642,12 @@ export default function Order() {
                 <span>{formatCurrency(cartTotal)}</span>
               </div>
               <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Tax (5%)</span>
-                <span>{formatCurrency(cartTotal * 0.05)}</span>
+                <span>VAT (15%)</span>
+                <span>{formatCurrency(cartTotal * 0.15)}</span>
               </div>
               <div className="flex justify-between font-bold text-lg border-t pt-2">
                 <span>Total</span>
-                <span>{formatCurrency(cartTotal * 1.05)}</span>
+                <span>{formatCurrency(cartTotal * 1.15)}</span>
               </div>
             </div>
           </div>
