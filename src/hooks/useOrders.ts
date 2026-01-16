@@ -133,25 +133,31 @@ export function useCreateCustomerOrder() {
   
   return useMutation({
     mutationFn: async (order: Omit<OrderInsert, 'order_number' | 'created_by'>) => {
-      const { data: insertData, error: orderError } = await supabase
+      const { data: insertRows, error: orderError } = await supabase
         .from('orders')
         .insert({
           ...order,
           order_number: 'TEMP', // Will be overwritten by trigger
         })
-        .select('id')
-        .single();
-      
+        .select('id');
+
       if (orderError) throw orderError;
-      
+
+      const insertedId = insertRows?.[0]?.id;
+      if (!insertedId) {
+        throw new Error('Order was created but could not be retrieved. Please try again.');
+      }
+
       // Re-fetch to get the trigger-generated order_number
       const { data: orderData, error: fetchError } = await supabase
         .from('orders')
         .select()
-        .eq('id', insertData.id)
-        .single();
-      
+        .eq('id', insertedId)
+        .maybeSingle();
+
       if (fetchError) throw fetchError;
+      if (!orderData) throw new Error('Order was created but is no longer available. Please retry.');
+
       return orderData;
     },
     onSuccess: () => {
@@ -166,14 +172,13 @@ export function useCreateCustomerOrder() {
 export function useCreateOrderItem() {
   return useMutation({
     mutationFn: async (item: OrderItemInsert) => {
-      const { data, error } = await supabase
+      // NOTE: Public customers can INSERT but cannot SELECT order_items (RLS)
+      const { error } = await supabase
         .from('order_items')
-        .insert(item)
-        .select()
-        .single();
-      
+        .insert(item);
+
       if (error) throw error;
-      return data;
+      return item;
     },
   });
 }
