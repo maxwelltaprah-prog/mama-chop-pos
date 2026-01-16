@@ -1,11 +1,97 @@
-import { Building2, MapPin, Phone, Mail, Clock, Users, Printer, Bell, Shield, Palette } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Building2, MapPin, Phone, Mail, Clock, Users, Printer, Bell, Shield, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { useSettings, useUpdateSettings, SettingsMap } from '@/hooks/useSettings';
+import { useTables } from '@/hooks/useTables';
+import { toast } from 'sonner';
 
 export function SettingsView() {
+  const { data: settings, isLoading } = useSettings();
+  const { data: tables } = useTables();
+  const updateSettings = useUpdateSettings();
+  
+  // Local state for form inputs
+  const [restaurantInfo, setRestaurantInfo] = useState({
+    restaurant_name: '',
+    location: '',
+    phone: '',
+    email: '',
+  });
+  
+  const [operatingHours, setOperatingHours] = useState({
+    hours_weekday_open: '',
+    hours_weekday_close: '',
+    hours_saturday_open: '',
+    hours_saturday_close: '',
+    hours_sunday_open: '',
+    hours_sunday_close: '',
+  });
+  
+  const [toggleSettings, setToggleSettings] = useState({
+    auto_print_receipts: false,
+    include_tax_breakdown: false,
+    qr_code_on_receipt: false,
+    new_order_alerts: false,
+    low_stock_warnings: false,
+    daily_summary_email: false,
+  });
+
+  // Initialize from settings
+  useEffect(() => {
+    if (settings) {
+      setRestaurantInfo({
+        restaurant_name: settings.restaurant_name || '',
+        location: settings.location || '',
+        phone: settings.phone || '',
+        email: settings.email || '',
+      });
+      setOperatingHours({
+        hours_weekday_open: settings.hours_weekday_open || '8:00 AM',
+        hours_weekday_close: settings.hours_weekday_close || '10:00 PM',
+        hours_saturday_open: settings.hours_saturday_open || '8:00 AM',
+        hours_saturday_close: settings.hours_saturday_close || '10:00 PM',
+        hours_sunday_open: settings.hours_sunday_open || '10:00 AM',
+        hours_sunday_close: settings.hours_sunday_close || '8:00 PM',
+      });
+      setToggleSettings({
+        auto_print_receipts: settings.auto_print_receipts === 'true',
+        include_tax_breakdown: settings.include_tax_breakdown === 'true',
+        qr_code_on_receipt: settings.qr_code_on_receipt === 'true',
+        new_order_alerts: settings.new_order_alerts === 'true',
+        low_stock_warnings: settings.low_stock_warnings === 'true',
+        daily_summary_email: settings.daily_summary_email === 'true',
+      });
+    }
+  }, [settings]);
+
+  const handleSaveRestaurantInfo = () => {
+    updateSettings.mutate(restaurantInfo);
+  };
+
+  const handleSaveHours = () => {
+    updateSettings.mutate(operatingHours);
+  };
+
+  const handleToggleChange = (key: keyof typeof toggleSettings, value: boolean) => {
+    setToggleSettings(prev => ({ ...prev, [key]: value }));
+    updateSettings.mutate({ [key]: value ? 'true' : 'false' });
+  };
+
+  const totalTables = tables?.length || 0;
+  const totalSeats = tables?.reduce((sum, t) => sum + t.seats, 0) || 0;
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       {/* Header */}
@@ -27,29 +113,53 @@ export function SettingsView() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Restaurant Name</Label>
-              <Input id="name" defaultValue="ChopBar Accra" />
+              <Input 
+                id="name" 
+                value={restaurantInfo.restaurant_name}
+                onChange={(e) => setRestaurantInfo(prev => ({ ...prev, restaurant_name: e.target.value }))}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="location" className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" /> Location
               </Label>
-              <Input id="location" defaultValue="15 Oxford Street, Osu, Accra" />
+              <Input 
+                id="location" 
+                value={restaurantInfo.location}
+                onChange={(e) => setRestaurantInfo(prev => ({ ...prev, location: e.target.value }))}
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="phone" className="flex items-center gap-2">
                   <Phone className="w-4 h-4" /> Phone
                 </Label>
-                <Input id="phone" defaultValue="+233 24 123 4567" />
+                <Input 
+                  id="phone" 
+                  value={restaurantInfo.phone}
+                  onChange={(e) => setRestaurantInfo(prev => ({ ...prev, phone: e.target.value }))}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-2">
                   <Mail className="w-4 h-4" /> Email
                 </Label>
-                <Input id="email" defaultValue="info@chopbar.gh" />
+                <Input 
+                  id="email" 
+                  value={restaurantInfo.email}
+                  onChange={(e) => setRestaurantInfo(prev => ({ ...prev, email: e.target.value }))}
+                />
               </div>
             </div>
-            <Button variant="gradient" className="w-full">Save Changes</Button>
+            <Button 
+              variant="gradient" 
+              className="w-full"
+              onClick={handleSaveRestaurantInfo}
+              disabled={updateSettings.isPending}
+            >
+              {updateSettings.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
           </CardContent>
         </Card>
 
@@ -64,18 +174,64 @@ export function SettingsView() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              {['Monday - Friday', 'Saturday', 'Sunday'].map((day) => (
-                <div key={day} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <span className="font-medium">{day}</span>
-                  <div className="flex items-center gap-2">
-                    <Input className="w-24 text-center" defaultValue="8:00 AM" />
-                    <span className="text-muted-foreground">to</span>
-                    <Input className="w-24 text-center" defaultValue="10:00 PM" />
-                  </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <span className="font-medium">Monday - Friday</span>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    className="w-24 text-center" 
+                    value={operatingHours.hours_weekday_open}
+                    onChange={(e) => setOperatingHours(prev => ({ ...prev, hours_weekday_open: e.target.value }))}
+                  />
+                  <span className="text-muted-foreground">to</span>
+                  <Input 
+                    className="w-24 text-center" 
+                    value={operatingHours.hours_weekday_close}
+                    onChange={(e) => setOperatingHours(prev => ({ ...prev, hours_weekday_close: e.target.value }))}
+                  />
                 </div>
-              ))}
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <span className="font-medium">Saturday</span>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    className="w-24 text-center" 
+                    value={operatingHours.hours_saturday_open}
+                    onChange={(e) => setOperatingHours(prev => ({ ...prev, hours_saturday_open: e.target.value }))}
+                  />
+                  <span className="text-muted-foreground">to</span>
+                  <Input 
+                    className="w-24 text-center" 
+                    value={operatingHours.hours_saturday_close}
+                    onChange={(e) => setOperatingHours(prev => ({ ...prev, hours_saturday_close: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <span className="font-medium">Sunday</span>
+                <div className="flex items-center gap-2">
+                  <Input 
+                    className="w-24 text-center" 
+                    value={operatingHours.hours_sunday_open}
+                    onChange={(e) => setOperatingHours(prev => ({ ...prev, hours_sunday_open: e.target.value }))}
+                  />
+                  <span className="text-muted-foreground">to</span>
+                  <Input 
+                    className="w-24 text-center" 
+                    value={operatingHours.hours_sunday_close}
+                    onChange={(e) => setOperatingHours(prev => ({ ...prev, hours_sunday_close: e.target.value }))}
+                  />
+                </div>
+              </div>
             </div>
-            <Button variant="gradient" className="w-full">Update Hours</Button>
+            <Button 
+              variant="gradient" 
+              className="w-full"
+              onClick={handleSaveHours}
+              disabled={updateSettings.isPending}
+            >
+              {updateSettings.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Update Hours
+            </Button>
           </CardContent>
         </Card>
 
@@ -91,15 +247,17 @@ export function SettingsView() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 rounded-lg bg-muted/50 text-center">
-                <p className="text-3xl font-bold">8</p>
+                <p className="text-3xl font-bold">{totalTables}</p>
                 <p className="text-sm text-muted-foreground">Total Tables</p>
               </div>
               <div className="p-4 rounded-lg bg-muted/50 text-center">
-                <p className="text-3xl font-bold">38</p>
+                <p className="text-3xl font-bold">{totalSeats}</p>
                 <p className="text-sm text-muted-foreground">Total Seats</p>
               </div>
             </div>
-            <Button variant="outline" className="w-full">Manage Tables</Button>
+            <Button variant="outline" className="w-full" onClick={() => toast.info('Navigate to Tables module to manage tables')}>
+              Manage Tables
+            </Button>
           </CardContent>
         </Card>
 
@@ -118,21 +276,30 @@ export function SettingsView() {
                 <p className="font-medium">Auto-print receipts</p>
                 <p className="text-sm text-muted-foreground">Print after each order</p>
               </div>
-              <Switch defaultChecked />
+              <Switch 
+                checked={toggleSettings.auto_print_receipts}
+                onCheckedChange={(checked) => handleToggleChange('auto_print_receipts', checked)}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Include tax breakdown</p>
                 <p className="text-sm text-muted-foreground">Show itemized taxes</p>
               </div>
-              <Switch defaultChecked />
+              <Switch 
+                checked={toggleSettings.include_tax_breakdown}
+                onCheckedChange={(checked) => handleToggleChange('include_tax_breakdown', checked)}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">QR code on receipt</p>
                 <p className="text-sm text-muted-foreground">For feedback collection</p>
               </div>
-              <Switch />
+              <Switch 
+                checked={toggleSettings.qr_code_on_receipt}
+                onCheckedChange={(checked) => handleToggleChange('qr_code_on_receipt', checked)}
+              />
             </div>
           </CardContent>
         </Card>
@@ -152,21 +319,30 @@ export function SettingsView() {
                 <p className="font-medium">New order alerts</p>
                 <p className="text-sm text-muted-foreground">Sound notification</p>
               </div>
-              <Switch defaultChecked />
+              <Switch 
+                checked={toggleSettings.new_order_alerts}
+                onCheckedChange={(checked) => handleToggleChange('new_order_alerts', checked)}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Low stock warnings</p>
                 <p className="text-sm text-muted-foreground">When items run low</p>
               </div>
-              <Switch defaultChecked />
+              <Switch 
+                checked={toggleSettings.low_stock_warnings}
+                onCheckedChange={(checked) => handleToggleChange('low_stock_warnings', checked)}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium">Daily summary email</p>
                 <p className="text-sm text-muted-foreground">End of day report</p>
               </div>
-              <Switch />
+              <Switch 
+                checked={toggleSettings.daily_summary_email}
+                onCheckedChange={(checked) => handleToggleChange('daily_summary_email', checked)}
+              />
             </div>
           </CardContent>
         </Card>
@@ -183,9 +359,7 @@ export function SettingsView() {
           <CardContent className="space-y-4">
             <div className="space-y-3">
               {[
-                { name: 'Kwame Adu', role: 'Cashier', active: true },
-                { name: 'Ama Serwaa', role: 'Kitchen', active: true },
-                { name: 'Kofi Mensah', role: 'Admin', active: true },
+                { name: 'Admin User', role: 'Admin', active: true },
               ].map((staff) => (
                 <div key={staff.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-3">
@@ -203,7 +377,9 @@ export function SettingsView() {
                 </div>
               ))}
             </div>
-            <Button variant="outline" className="w-full">Add Staff Member</Button>
+            <Button variant="outline" className="w-full" onClick={() => toast.info('Staff management coming soon!')}>
+              Add Staff Member
+            </Button>
           </CardContent>
         </Card>
       </div>

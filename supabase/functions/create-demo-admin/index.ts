@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
       }
     })
 
-    const demoEmail = 'demo@chopbar.com'
+    const demoEmail = 'demo@eidikoskouzina.com'
     const demoPassword = 'demo1234'
 
     // Check if demo user exists

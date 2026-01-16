@@ -1,4 +1,4 @@
-// Sample data for ChopBar POS
+// Sample data for Eidikos Kouzina POS
 
 export type OrderType = 'dine-in' | 'takeaway' | 'delivery';
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'served' | 'completed';

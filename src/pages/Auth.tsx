@@ -70,7 +70,7 @@ export default function Auth() {
           <div className="w-20 h-20 rounded-3xl gradient-gold flex items-center justify-center shadow-xl mb-4">
             <span className="text-4xl">🍲</span>
           </div>
-          <h1 className="text-3xl font-display font-bold text-gradient">ChopBar POS</h1>
+          <h1 className="text-3xl font-display font-bold text-gradient">Eidikos Kouzina</h1>
           <p className="text-muted-foreground mt-1">Restaurant Management System</p>
         </div>
 
