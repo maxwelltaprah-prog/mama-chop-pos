@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, Package, ChefHat, Clock, CheckCircle, Truck, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Search, Package, ChefHat, Clock, CheckCircle, ArrowLeft, RefreshCw, Bell } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,16 +76,11 @@ export default function TrackOrder() {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [isLiveTracking, setIsLiveTracking] = useState(false);
+  const [lastStatusUpdate, setLastStatusUpdate] = useState<string | null>(null);
 
-  const handleSearch = async () => {
-    if (!orderNumber.trim()) {
-      toast.error('Please enter an order number');
-      return;
-    }
-
-    setIsLoading(true);
-    setSearched(true);
-
+  // Fetch order data
+  const fetchOrder = useCallback(async (orderNum: string) => {
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -111,25 +106,104 @@ export default function TrackOrder() {
             )
           )
         `)
-        .eq('order_number', orderNumber.toUpperCase().trim())
+        .eq('order_number', orderNum.toUpperCase().trim())
         .maybeSingle();
 
       if (error) throw error;
-
-      if (data) {
-        setOrder(data as unknown as OrderData);
-      } else {
-        setOrder(null);
-        toast.error('Order not found. Please check the order number.');
-      }
+      return data as unknown as OrderData | null;
     } catch (error) {
       console.error('Error fetching order:', error);
-      toast.error('Failed to fetch order. Please try again.');
-      setOrder(null);
-    } finally {
-      setIsLoading(false);
+      return null;
     }
+  }, []);
+
+  const handleSearch = async () => {
+    if (!orderNumber.trim()) {
+      toast.error('Please enter an order number');
+      return;
+    }
+
+    setIsLoading(true);
+    setSearched(true);
+
+    const data = await fetchOrder(orderNumber);
+    
+    if (data) {
+      setOrder(data);
+      setIsLiveTracking(true);
+    } else {
+      setOrder(null);
+      setIsLiveTracking(false);
+      toast.error('Order not found. Please check the order number.');
+    }
+    
+    setIsLoading(false);
   };
+
+  // Real-time subscription for order status updates
+  useEffect(() => {
+    if (!order?.id || !isLiveTracking) return;
+
+    const channel = supabase
+      .channel(`order-tracking-${order.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${order.id}`,
+        },
+        async (payload) => {
+          const newStatus = (payload.new as { status: string }).status;
+          const previousStatus = order.status;
+          
+          if (newStatus !== previousStatus) {
+            // Update order with new status
+            setOrder(prev => prev ? { ...prev, status: newStatus } : null);
+            setLastStatusUpdate(new Date().toISOString());
+            
+            // Show toast notification
+            const statusInfo = statusConfig[newStatus];
+            if (statusInfo) {
+              toast.success(
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${statusInfo.color}`}>
+                    <statusInfo.icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">{statusInfo.label}</p>
+                    <p className="text-sm text-muted-foreground">{statusInfo.description}</p>
+                  </div>
+                </div>,
+                { duration: 5000 }
+              );
+
+              // Play sound for ready status
+              if (newStatus === 'ready') {
+                try {
+                  const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQcoU4zQypRqJh1LptHPpHQ2KU2e0dCfeDkcQpPX0qF6Pg4tktnep4JLDB+E3d+phE8WG3nk4a6KUhsYcer/pIlUHRdn7e6ujV0hFWXx8rSRYCUTZPP0tZJhJBNi8vO0kWAkE2Lz87SRYCQTYvPztJFhJBNj9PS2k2MmFGX19rqXaCoXa/n7vJttLxt2/f/Bn3EzIHf+AAKjdjQjfAABpHg2JYQBAaZ6NyWGAgGnezgliAIBqHw5JokDAal9OieKAwKqfjoniwQCq389KYwEAqx/PSqNBAOtgD4rjgQDroE/LI8FA6+CQC2QBQOwg0EukQUDsYRBL5IGA7KEQS+SBgOyhEIwkwYDsoVCMJMGA7OFQTCSBRG0hUEwkgQTtYY/L5EDFLOGPS+PAxWzhz0ujgMWsog9LY0DFrKIPC2NAxeziTwsjAMXs4k8LIwDF7SJPC2MAxe0iTwtjAMXtIk8LYwDF7SJPC2MAxi0ijwtjAMYtIo8LYwDGLSKPC2MBBi0ijwtjAQYtIo8LYwEGLSKPC2MBBi0ijwtjAQYtIo8LYwEGLSKPC2MBBi0ijwtigMYs4k8LIsDGLOIPCyLAxi0iTwsjAMYtIk8LYwDGLSJPC2MAxi0iTwtjAMYtIk8LYwEF7SKPCyLAxe0ijwtjAQXtIo8LYwEGLSKPC2MBBi0ijwtjAQYtIo8LYwEGLSKPC2MBBi0ijwtjAQYtIo8LYwEGLSKPC2MBBi0ijwtjAQYtIo8LYoEGLOJPCyJAxizij0siQMYtIk9LIkDGLSKPC2KAxi0ijwtjAMYtIo8LYwDGbSKPS2NAxi0ij0tjQMYtIk9LY0DGLSJPSyMAxi0iT0sjAMYtIk9LIwDGbSJPSyMAxi0iT0sjAMYtIk9LIwDGLSJPSyNAxi0iTwsjQMYtIk8LI0DGbOIPSyMAxi0iTwtjAMYtIk8LYwDGLSJPC2MAxi0iTwtjAMYtIk8LYwDGLSJPC2MAxi0iTwtjAMYtIk8LYwDGLSJPC2MAxi0iTwtjAMYtIk8LYsDGLOIPC2LAxi0iDwtiwMYtIg8LYsDGLSJPC2LAxi0iTwtiwMYtIk8LYsDGLSJPC2LAxi0iTwtiwMYtIk8LYsDGLSJPC2MAxm0iDwtjAMZtIg8LYwDGbSIPC2MAhi0iD0tjQIZtIc9LY0CGbSHPS2NAhm0hz0tjQIZtIc9LY0CGbSHPS2NAhm0hz0tjQIZtIc9LY0CGbSHPS2NAhm0hz0tjQIZtIc9LY0CGbSHPS2NAhm0hz0tjQIZtIc9LY0CGbSHPS2NAhq0hz0ujQIatIc+Lo0CGrSHPi6NAhq0hz4ujQIatIc+Lo0CGrSHPi6NAhq0hz4ujQIatIc+Lo0CGrSHPi6NAhq0hz4ujQIatIc+Lo0CGrSHPi6NAhq0hz4ujQIatIc+Lo0CGrSIPi6OAhq0iD4ujgIatIg+Lo4CGrSIPi6OAhq0iD4ujgIatIg+Lo4CGrSIPi6OAhq0iD4ujgIatIg+Lo4CGrSIPi6OAhq0iD4ujgIatIg+Lo4CGrSIPi6OAhq0iD4ujgIatIg+Lo4CGrSIPi6OAhq0iD4ujgIatIg+Lo4CGrSIPi6OAhq0iD4ujgIatIg+Lo4CGrSIPi6OAhq0iD4ujgIatIg+Lo4CGrSIPi6OAhq0iD4ujgIatIg+Lo4CGrSIPi6OAhq0iD4ujgIatIg+Lo4CGrSIPi6OAhq0iD4ujgIatIg+Lo4CGrSIPi6OAhq0iD4ujgI=');
+                  audio.volume = 0.5;
+                  audio.play().catch(() => {});
+                } catch {}
+              }
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [order?.id, order?.status, isLiveTracking]);
+
+  // Cleanup when component unmounts or order changes
+  useEffect(() => {
+    return () => {
+      setIsLiveTracking(false);
+    };
+  }, []);
 
   const getStatusSteps = () => {
     const steps = ['pending', 'preparing', 'ready', order?.order_type === 'dine-in' ? 'served' : 'completed'];
@@ -201,6 +275,22 @@ export default function TrackOrder() {
         {/* Order Details */}
         {order && (
           <div className="space-y-6 animate-fade-in">
+            {/* Live Tracking Indicator */}
+            {isLiveTracking && (
+              <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-success/10 border border-success/20">
+                <div className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-success"></span>
+                </div>
+                <span className="text-sm font-medium text-success">Live Tracking Active</span>
+                {lastStatusUpdate && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    Updated {new Date(lastStatusUpdate).toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Order Header */}
             <Card>
               <CardContent className="pt-6">
