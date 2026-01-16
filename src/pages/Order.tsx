@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin, Loader2, CreditCard, History } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin, Loader2, CreditCard, History, Home, Download } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { saveOrderToHistory } from './OrderHistory';
 import { useMenuItems, MenuItemRow, MenuItemSize, MenuItemAddon } from '@/hooks/useMenuItems';
@@ -430,7 +430,7 @@ export default function Order() {
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b safe-top">
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Link to="/order" className="flex items-center gap-2 sm:gap-3 min-w-0">
               <img 
                 src="/eidikos-logo.jpeg" 
                 alt="Eidikos Kouzina" 
@@ -440,34 +440,41 @@ export default function Order() {
                 <h1 className="text-base sm:text-xl font-display font-bold text-gradient truncate">Eidikos Kouzina</h1>
                 <p className="text-xs text-muted-foreground hidden sm:block">Order Online</p>
               </div>
-            </div>
+            </Link>
 
-            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Desktop Navigation */}
+            <div className="hidden sm:flex items-center gap-2 shrink-0">
               <Link to="/order-history">
-                <Button variant="ghost" size="sm" className="px-2 sm:px-3">
-                  <History className="w-4 h-4 sm:mr-1" />
-                  <span className="hidden sm:inline">History</span>
+                <Button variant="ghost" size="sm">
+                  <History className="w-4 h-4 mr-1" />
+                  History
                 </Button>
               </Link>
               <Link to="/track">
-                <Button variant="ghost" size="sm" className="px-2 sm:px-3">
-                  <MapPin className="w-4 h-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Track</span>
+                <Button variant="ghost" size="sm">
+                  <MapPin className="w-4 h-4 mr-1" />
+                  Track
+                </Button>
+              </Link>
+              <Link to="/install">
+                <Button variant="ghost" size="sm">
+                  <Download className="w-4 h-4 mr-1" />
+                  Install
                 </Button>
               </Link>
             
               <Sheet open={cartOpen} onOpenChange={setCartOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="default" className="relative px-3 sm:px-4">
-                  <ShoppingCart className="w-5 h-5 sm:mr-2" />
-                  <span className="hidden sm:inline">Cart</span>
-                  {cartItemCount > 0 && (
-                    <Badge className="absolute -top-2 -right-2 h-5 w-5 sm:h-6 sm:w-6 p-0 flex items-center justify-center text-xs">
-                      {cartItemCount}
-                    </Badge>
-                  )}
-                </Button>
-              </SheetTrigger>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="default" className="relative">
+                    <ShoppingCart className="w-5 h-5 mr-2" />
+                    Cart
+                    {cartItemCount > 0 && (
+                      <Badge className="absolute -top-2 -right-2 h-6 w-6 p-0 flex items-center justify-center text-xs">
+                        {cartItemCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </SheetTrigger>
               <SheetContent className="w-full sm:max-w-md flex flex-col">
                 <SheetHeader>
                   <SheetTitle className="font-display">Your Cart</SheetTitle>
@@ -963,20 +970,44 @@ export default function Order() {
         </DialogContent>
       </Dialog>
 
-      {/* Floating Cart Button (Mobile) */}
-      {cartItemCount > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 md:hidden z-50">
-          <Button 
-            variant="gradient" 
-            size="lg" 
-            className="w-full shadow-xl"
+      {/* Mobile Bottom Navigation */}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t safe-bottom">
+        <div className="flex items-center justify-around py-2 px-2">
+          <Link to="/order" className="flex flex-col items-center gap-0.5 p-2 text-primary">
+            <Home className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Menu</span>
+          </Link>
+          <Link to="/order-history" className="flex flex-col items-center gap-0.5 p-2 text-muted-foreground hover:text-primary transition-colors">
+            <History className="w-5 h-5" />
+            <span className="text-[10px] font-medium">History</span>
+          </Link>
+          <button
             onClick={() => setCartOpen(true)}
+            className="relative flex flex-col items-center gap-0.5 p-2 text-muted-foreground hover:text-primary transition-colors"
           >
-            <ShoppingCart className="w-5 h-5 mr-2" />
-            View Cart ({cartItemCount}) - {formatCurrency(cartTotal)}
-          </Button>
+            <div className="relative">
+              <ShoppingCart className="w-5 h-5" />
+              {cartItemCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center font-bold">
+                  {cartItemCount > 9 ? '9+' : cartItemCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] font-medium">Cart</span>
+          </button>
+          <Link to="/track" className="flex flex-col items-center gap-0.5 p-2 text-muted-foreground hover:text-primary transition-colors">
+            <MapPin className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Track</span>
+          </Link>
+          <Link to="/install" className="flex flex-col items-center gap-0.5 p-2 text-muted-foreground hover:text-primary transition-colors">
+            <Download className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Install</span>
+          </Link>
         </div>
-      )}
+      </nav>
+
+      {/* Bottom spacing for mobile nav */}
+      <div className="sm:hidden h-16" />
     </div>
   );
 }
