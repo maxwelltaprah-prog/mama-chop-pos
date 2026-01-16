@@ -25,9 +25,9 @@ export function useEmployees() {
 
       if (rolesError) throw rolesError;
 
-      // Get profiles for these users
       const userIds = roles.map(r => r.user_id);
-      
+
+      // Fetch profiles for these users
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -35,13 +35,20 @@ export function useEmployees() {
 
       if (profilesError) throw profilesError;
 
+      // Fetch employee emails from edge function
+      const { data: emailsData } = await supabase.functions.invoke('get-employee-emails', {
+        body: { userIds },
+      });
+
+      const emailMap: Record<string, string> = emailsData?.emails || {};
+
       // Combine the data
       const employees: Employee[] = roles.map(role => {
         const profile = profiles?.find(p => p.user_id === role.user_id);
         return {
           id: role.id,
           user_id: role.user_id,
-          email: '', // We'll need to get this from the edge function
+          email: emailMap[role.user_id] || '',
           full_name: profile?.full_name || null,
           phone: profile?.phone || null,
           role: role.role as AppRole,
