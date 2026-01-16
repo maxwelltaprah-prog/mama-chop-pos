@@ -307,20 +307,21 @@ export default function Order() {
         },
       };
 
-      const { data: pendingInsert, error: pendingError } = await (supabase as any)
-        .from('pending_orders')
-        .insert({
-          payload: pendingPayload,
-          customer_email: customerEmail,
-          amount: total,
-          payment_channel: paymentMethod === 'momo' ? 'mobile_money' : 'card',
-        })
-        .select('id')
-        .single();
+      const { data: pendingData, error: pendingFnError } = await supabase.functions.invoke(
+        'create-pending-order',
+        {
+          body: {
+            customerEmail,
+            amount: total,
+            paymentChannel: paymentMethod === 'momo' ? 'mobile_money' : 'card',
+            payload: pendingPayload,
+          },
+        }
+      );
 
-      if (pendingError) throw pendingError;
+      if (pendingFnError) throw pendingFnError;
 
-      const pendingOrderId = pendingInsert?.id as string | undefined;
+      const pendingOrderId = (pendingData as any)?.pendingOrderId as string | undefined;
       if (!pendingOrderId) throw new Error('Could not create pending order');
 
       const { data, error } = await supabase.functions.invoke('paystack-initialize', {
