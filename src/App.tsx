@@ -4,9 +4,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import { PwaUpdatePrompt } from "@/components/PwaUpdatePrompt";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import CustomerAuth from "./pages/CustomerAuth";
 import Order from "./pages/Order";
 import OrderHistory from "./pages/OrderHistory";
 import TrackOrder from "./pages/TrackOrder";
@@ -44,6 +46,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/auth" element={<Auth />} />
+      <Route path="/customer-auth" element={<CustomerAuth />} />
       <Route path="/order" element={<Order />} />
       <Route path="/order-history" element={<OrderHistory />} />
       <Route path="/orders" element={<Navigate to="/order" replace />} />
@@ -70,7 +73,9 @@ const App = () => (
       <PwaUpdatePrompt />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <CustomerAuthProvider>
+            <AppRoutes />
+          </CustomerAuthProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

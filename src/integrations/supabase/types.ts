@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      customer_profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          phone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          phone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       menu_items: {
         Row: {
           addons: Json | null
@@ -116,6 +143,7 @@ export type Database = {
           created_by: string | null
           customer_name: string | null
           customer_phone: string | null
+          customer_user_id: string | null
           id: string
           notes: string | null
           order_number: string
@@ -134,6 +162,7 @@ export type Database = {
           created_by?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          customer_user_id?: string | null
           id?: string
           notes?: string | null
           order_number: string
@@ -152,6 +181,7 @@ export type Database = {
           created_by?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          customer_user_id?: string | null
           id?: string
           notes?: string | null
           order_number?: string
@@ -339,6 +369,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_customer: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "cashier" | "kitchen"
