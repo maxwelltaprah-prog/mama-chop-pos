@@ -129,9 +129,11 @@ export function AppLayout({ children, activeView, onViewChange }: AppLayoutProps
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-gold flex items-center justify-center shadow-md">
-              <span className="text-xl">🍲</span>
-            </div>
+            <img 
+              src="/eidikos-logo.jpeg" 
+              alt="Eidikos Kouzina" 
+              className="w-10 h-10 rounded-xl shadow-md object-cover"
+            />
             <div>
               <h1 className="font-display font-bold text-lg">Eidikos Kouzina</h1>
               <p className="text-xs text-muted-foreground">POS System</p>
