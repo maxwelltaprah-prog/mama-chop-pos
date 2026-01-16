@@ -1,5 +1,5 @@
 import { useState, forwardRef } from 'react';
-import { Clock, Check, ChefHat, UtensilsCrossed, Package, Search, Printer, Loader2, CreditCard, Banknote, Smartphone } from 'lucide-react';
+import { Clock, Check, ChefHat, UtensilsCrossed, Package, Search, Printer, Loader2, CreditCard, Banknote, Smartphone, Send, Mail, ExternalLink, Copy } from 'lucide-react';
 import { formatCurrency, getStatusColor, getPaymentIcon } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { QRCodeSVG } from 'qrcode.react';
 
 const statusSteps: { status: OrderStatus; label: string; icon: React.ElementType }[] = [
   { status: 'pending', label: 'Pending', icon: Clock },
@@ -47,6 +49,12 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('cash');
   const [amountReceived, setAmountReceived] = useState('');
+  
+  // Online payment states
+  const [onlinePaymentDialogOpen, setOnlinePaymentDialogOpen] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [paymentUrl, setPaymentUrl] = useState('');
+  const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
 
   const { data: orders = [], isLoading } = useOrders();
   const updateStatus = useUpdateOrderStatus();
@@ -109,6 +117,90 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
     } catch (error) {
       toast.error('Failed to record payment');
     }
+  };
+
+  const openOnlinePaymentDialog = (order: OrderWithItems) => {
+    setSelectedOrder(order);
+    setCustomerEmail('');
+    setPaymentUrl('');
+    setOnlinePaymentDialogOpen(true);
+  };
+
+  const initiateOnlinePayment = async () => {
+    if (!selectedOrder) return;
+    
+    if (!customerEmail || !customerEmail.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setIsInitiatingPayment(true);
+
+    try {
+      // Create pending order with existing order data
+      const pendingPayload = {
+        order_type: selectedOrder.order_type,
+        table_id: selectedOrder.table_id,
+        customer_name: selectedOrder.customer_name,
+        customer_phone: selectedOrder.customer_phone,
+        subtotal: Number(selectedOrder.subtotal),
+        tax: Number(selectedOrder.tax),
+        total: Number(selectedOrder.total),
+        existing_order_id: selectedOrder.id, // Link to existing order
+        items: selectedOrder.order_items.map(item => ({
+          menu_item_id: item.menu_item_id,
+          quantity: item.quantity,
+          size: item.size || null,
+          unit_price: Number(item.unit_price),
+          total_price: Number(item.total_price),
+          notes: item.notes || null,
+          addons: item.addons || null,
+        })),
+      };
+
+      const { data: pendingData, error: pendingError } = await supabase.functions.invoke('create-pending-order', {
+        body: {
+          customerEmail,
+          amount: Number(selectedOrder.total),
+          paymentChannel: 'mobile_money',
+          payload: pendingPayload,
+        },
+      });
+
+      if (pendingError || !pendingData?.pendingOrderId) {
+        throw new Error(pendingError?.message || 'Failed to create pending order');
+      }
+
+      // Initialize Paystack payment
+      const { data: paystackData, error: paystackError } = await supabase.functions.invoke('paystack-initialize', {
+        body: {
+          email: customerEmail,
+          amount: Number(selectedOrder.total),
+          pendingOrderId: pendingData.pendingOrderId,
+          orderNumber: selectedOrder.order_number, // Include existing order number
+          customerName: selectedOrder.customer_name || 'Customer',
+          customerPhone: selectedOrder.customer_phone || '',
+          paymentChannel: 'mobile_money',
+        },
+      });
+
+      if (paystackError || !paystackData?.authorization_url) {
+        throw new Error(paystackError?.message || 'Failed to initialize payment');
+      }
+
+      setPaymentUrl(paystackData.authorization_url);
+      toast.success('Payment link generated! Share with customer.');
+    } catch (error) {
+      console.error('Online payment error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate payment link');
+    } finally {
+      setIsInitiatingPayment(false);
+    }
+  };
+
+  const copyPaymentUrl = () => {
+    navigator.clipboard.writeText(paymentUrl);
+    toast.success('Payment link copied to clipboard!');
   };
 
   if (isLoading) {
@@ -273,17 +365,28 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
                   Print
                 </Button>
                 
-                {/* Record Payment Button - Only show for unpaid orders */}
+                {/* Payment Buttons - Only show for unpaid orders */}
                 {order.payment_status !== 'paid' && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="border-success text-success hover:bg-success/10"
-                    onClick={() => openPaymentDialog(order)}
-                  >
-                    <Banknote className="w-4 h-4 mr-2" />
-                    Record Payment
-                  </Button>
+                  <>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="border-success text-success hover:bg-success/10"
+                      onClick={() => openPaymentDialog(order)}
+                    >
+                      <Banknote className="w-4 h-4 mr-2" />
+                      Record
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="border-primary text-primary hover:bg-primary/10"
+                      onClick={() => openOnlinePaymentDialog(order)}
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Send Link
+                    </Button>
+                  </>
                 )}
                 
                 {getNextStatus(order.status) && (
@@ -427,6 +530,136 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
               Confirm Payment
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Online Payment Dialog */}
+      <Dialog open={onlinePaymentDialogOpen} onOpenChange={setOnlinePaymentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-display">Send Payment Link</DialogTitle>
+            <DialogDescription>
+              Generate a payment link for order {selectedOrder?.order_number}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedOrder && (
+            <div className="space-y-4 py-4">
+              {!paymentUrl ? (
+                <>
+                  {/* Order Summary */}
+                  <div className="p-4 rounded-xl bg-muted/50 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Order</span>
+                      <span className="font-mono font-medium">{selectedOrder.order_number}</span>
+                    </div>
+                    {selectedOrder.customer_name && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Customer</span>
+                        <span>{selectedOrder.customer_name}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
+                      <span>Total Due</span>
+                      <span className="text-primary">{formatCurrency(Number(selectedOrder.total))}</span>
+                    </div>
+                  </div>
+
+                  {/* Customer Email */}
+                  <div className="space-y-2">
+                    <Label htmlFor="orderCustomerEmail" className="flex items-center gap-2">
+                      <Mail className="w-4 h-4" />
+                      Customer Email (required for payment)
+                    </Label>
+                    <Input
+                      id="orderCustomerEmail"
+                      type="email"
+                      placeholder="customer@email.com"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Payment Link Generated */}
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mx-auto">
+                      <Check className="w-8 h-8 text-success" />
+                    </div>
+                    <p className="text-lg font-semibold">Payment Link Ready!</p>
+                    <p className="text-sm text-muted-foreground">
+                      Share this link with the customer or let them scan the QR code
+                    </p>
+                  </div>
+
+                  {/* QR Code */}
+                  <div className="flex justify-center p-4 bg-white rounded-xl">
+                    <QRCodeSVG value={paymentUrl} size={180} />
+                  </div>
+
+                  {/* Payment Link */}
+                  <div className="flex gap-2">
+                    <Input
+                      value={paymentUrl}
+                      readOnly
+                      className="text-xs font-mono"
+                    />
+                    <Button variant="outline" size="icon" onClick={copyPaymentUrl}>
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open(paymentUrl, '_blank')}
+                    >
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Open Link
+                    </Button>
+                    <Button
+                      variant="gradient"
+                      onClick={() => {
+                        setOnlinePaymentDialogOpen(false);
+                        setPaymentUrl('');
+                        setSelectedOrder(null);
+                      }}
+                    >
+                      <Check className="w-4 h-4 mr-2" />
+                      Done
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {!paymentUrl && (
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setOnlinePaymentDialogOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="gradient" 
+                onClick={initiateOnlinePayment}
+                disabled={isInitiatingPayment || !customerEmail}
+                className="flex-1"
+              >
+                {isInitiatingPayment ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4 mr-2" />
+                )}
+                {isInitiatingPayment ? 'Generating...' : 'Generate Link'}
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>

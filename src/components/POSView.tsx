@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, X, User, MapPin, Check, Phone, Printer, Loader2 } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, X, User, MapPin, Check, Phone, Printer, Loader2, Send, Mail, ExternalLink, Copy } from 'lucide-react';
 import { formatCurrency } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,8 @@ import { printReceipt, generateReceiptHTML } from '@/lib/printReceipt';
 import { categories } from '@/lib/data';
 import { Json } from '@/integrations/supabase/types';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
+import { QRCodeSVG } from 'qrcode.react';
 
 type OrderType = 'dine-in' | 'takeaway' | 'delivery';
 type PaymentMethod = 'cash' | 'mtn-momo' | 'vodafone-cash' | 'airteltigo';
@@ -59,6 +61,12 @@ export function POSView() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  
+  // Online payment states
+  const [onlinePaymentDialogOpen, setOnlinePaymentDialogOpen] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [paymentUrl, setPaymentUrl] = useState('');
+  const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
 
   const { data: menuItems = [], isLoading: menuLoading } = useMenuItems();
   const { data: tables = [] } = useTables();
@@ -121,6 +129,94 @@ export function POSView() {
   const handlePayment = (method: PaymentMethod) => {
     setSelectedPayment(method);
     setPaymentDialogOpen(true);
+  };
+
+  const handleOnlinePayment = () => {
+    // Validate order details first
+    if (orderType === 'dine-in' && !tableId) {
+      toast.error('Please select a table');
+      return;
+    }
+    if (orderType !== 'dine-in' && !customerName) {
+      toast.error('Please enter customer name');
+      return;
+    }
+    setCustomerEmail('');
+    setPaymentUrl('');
+    setOnlinePaymentDialogOpen(true);
+  };
+
+  const initiateOnlinePayment = async () => {
+    if (!customerEmail || !customerEmail.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setIsInitiatingPayment(true);
+
+    try {
+      // Create pending order
+      const pendingPayload = {
+        order_type: orderType,
+        table_id: orderType === 'dine-in' ? tableId : null,
+        customer_name: orderType !== 'dine-in' ? customerName : null,
+        customer_phone: orderType !== 'dine-in' ? customerPhone : null,
+        subtotal,
+        tax,
+        total,
+        items: cart.map(c => ({
+          menu_item_id: c.item.id,
+          quantity: c.quantity,
+          size: c.size || null,
+          unit_price: Number(c.item.price),
+          total_price: Number(c.item.price) * c.quantity,
+          notes: c.notes || null,
+          addons: null,
+        })),
+      };
+
+      const { data: pendingData, error: pendingError } = await supabase.functions.invoke('create-pending-order', {
+        body: {
+          customerEmail,
+          amount: total,
+          paymentChannel: 'mobile_money',
+          payload: pendingPayload,
+        },
+      });
+
+      if (pendingError || !pendingData?.pendingOrderId) {
+        throw new Error(pendingError?.message || 'Failed to create pending order');
+      }
+
+      // Initialize Paystack payment
+      const { data: paystackData, error: paystackError } = await supabase.functions.invoke('paystack-initialize', {
+        body: {
+          email: customerEmail,
+          amount: total,
+          pendingOrderId: pendingData.pendingOrderId,
+          customerName: customerName || 'Customer',
+          customerPhone: customerPhone || '',
+          paymentChannel: 'mobile_money',
+        },
+      });
+
+      if (paystackError || !paystackData?.authorization_url) {
+        throw new Error(paystackError?.message || 'Failed to initialize payment');
+      }
+
+      setPaymentUrl(paystackData.authorization_url);
+      toast.success('Payment link generated! Share with customer.');
+    } catch (error) {
+      console.error('Online payment error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate payment link');
+    } finally {
+      setIsInitiatingPayment(false);
+    }
+  };
+
+  const copyPaymentUrl = () => {
+    navigator.clipboard.writeText(paymentUrl);
+    toast.success('Payment link copied to clipboard!');
   };
 
   const confirmPayment = async () => {
@@ -375,6 +471,16 @@ export function POSView() {
               MoMo
             </Button>
           </div>
+          
+          {/* Send Payment Link Button */}
+          <Button 
+            variant="outline" 
+            className="w-full h-12 text-base font-semibold border-primary text-primary hover:bg-primary/10"
+            onClick={handleOnlinePayment}
+          >
+            <Send className="w-5 h-5 mr-2" />
+            Send Payment Link
+          </Button>
         </div>
       )}
     </>
@@ -593,9 +699,135 @@ export function POSView() {
                   <Printer className="w-4 h-4 mr-2" />
                 </>
               )}
-              {createOrder.isPending ? 'Processing...' : 'Confirm & Print'}
-            </Button>
-          </DialogFooter>
+            {createOrder.isPending ? 'Processing...' : 'Confirm & Print'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+      {/* Online Payment Dialog */}
+      <Dialog open={onlinePaymentDialogOpen} onOpenChange={setOnlinePaymentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-display">Send Payment Link</DialogTitle>
+            <DialogDescription>
+              Generate a payment link for customer to pay via Mobile Money or Card
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {!paymentUrl ? (
+              <>
+                {/* Order Summary */}
+                <div className="p-4 rounded-xl bg-muted/50 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Order Type</span>
+                    <span className="font-medium capitalize">{orderType}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Items</span>
+                    <span className="font-medium">{cart.reduce((sum, c) => sum + c.quantity, 0)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
+                    <span>Total</span>
+                    <span className="text-primary">{formatCurrency(total)}</span>
+                  </div>
+                </div>
+
+                {/* Customer Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="customerEmail" className="flex items-center gap-2">
+                    <Mail className="w-4 h-4" />
+                    Customer Email (required for payment)
+                  </Label>
+                  <Input
+                    id="customerEmail"
+                    type="email"
+                    placeholder="customer@email.com"
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Payment Link Generated */}
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mx-auto">
+                    <Check className="w-8 h-8 text-success" />
+                  </div>
+                  <p className="text-lg font-semibold">Payment Link Ready!</p>
+                  <p className="text-sm text-muted-foreground">
+                    Share this link with the customer or let them scan the QR code
+                  </p>
+                </div>
+
+                {/* QR Code */}
+                <div className="flex justify-center p-4 bg-white rounded-xl">
+                  <QRCodeSVG value={paymentUrl} size={180} />
+                </div>
+
+                {/* Payment Link */}
+                <div className="flex gap-2">
+                  <Input
+                    value={paymentUrl}
+                    readOnly
+                    className="text-xs font-mono"
+                  />
+                  <Button variant="outline" size="icon" onClick={copyPaymentUrl}>
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => window.open(paymentUrl, '_blank')}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open Link
+                  </Button>
+                  <Button
+                    variant="gradient"
+                    onClick={() => {
+                      clearCart();
+                      setOnlinePaymentDialogOpen(false);
+                      setPaymentUrl('');
+                    }}
+                  >
+                    <Check className="w-4 h-4 mr-2" />
+                    Done
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {!paymentUrl && (
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setOnlinePaymentDialogOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="gradient" 
+                onClick={initiateOnlinePayment}
+                disabled={isInitiatingPayment || !customerEmail}
+                className="flex-1"
+              >
+                {isInitiatingPayment ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4 mr-2" />
+                )}
+                {isInitiatingPayment ? 'Generating...' : 'Generate Link'}
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>

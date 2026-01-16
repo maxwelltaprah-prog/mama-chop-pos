@@ -49,21 +49,68 @@ async function materializeOrderFromPending(params: {
   }
 
   const payload = pending.payload as any;
-  const order = payload?.order;
-  const items = (payload?.items ?? []) as any[];
-  if (!order || !Array.isArray(items)) throw new Error("Invalid pending order payload");
-
   const payment_method = paymentMethodFromChannel(channel);
+
+  // Check if this is a payment for an existing order (from POS/Orders view)
+  const existingOrderId = payload?.existing_order_id;
+  if (existingOrderId) {
+    // Just update the existing order's payment status
+    const { error: updateErr } = await supabase
+      .from("orders")
+      .update({ 
+        payment_status: "paid", 
+        payment_method 
+      })
+      .eq("id", existingOrderId);
+    
+    if (updateErr) throw updateErr;
+    
+    // Get order number for reference
+    const { data: existingOrder } = await supabase
+      .from("orders")
+      .select("order_number")
+      .eq("id", existingOrderId)
+      .single();
+    
+    await supabase
+      .from("pending_orders")
+      .update({
+        reference,
+        created_order_id: existingOrderId,
+        created_order_number: existingOrder?.order_number,
+        status: "completed",
+      })
+      .eq("id", pendingOrderId);
+
+    return { order_number: existingOrder?.order_number, order_id: existingOrderId };
+  }
+
+  // Otherwise, create a new order from the pending order payload
+  const items = (payload?.items ?? []) as any[];
+  
+  // Build order object from payload (handle both structures)
+  const orderData = payload?.order ?? {
+    order_type: payload?.order_type ?? 'takeaway',
+    table_id: payload?.table_id ?? null,
+    customer_name: payload?.customer_name ?? null,
+    customer_phone: payload?.customer_phone ?? null,
+    customer_user_id: payload?.customer_user_id ?? null,
+    subtotal: payload?.subtotal ?? 0,
+    tax: payload?.tax ?? 0,
+    total: payload?.total ?? 0,
+    notes: payload?.notes ?? null,
+    status: payload?.status ?? 'pending',
+  };
 
   const { data: createdOrder, error: createOrderErr } = await supabase
     .from("orders")
     .insert({
-      ...order,
+      ...orderData,
       order_number: serverOrderNumberFallback(pendingOrderId),
       created_by: null,
       payment_status: "paid",
       payment_method,
-      status: order.status ?? "pending",
+      status: orderData.status ?? "pending",
     })
     .select("id, order_number")
     .single();
