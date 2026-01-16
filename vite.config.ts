@@ -47,15 +47,32 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpeg,jpg,woff,woff2}"],
+        // Important: only cache SAFE (GET) requests.
+        // Caching all backend requests can break order placement on mobile/PWA.
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            // Cache menu catalog reads for faster mobile browsing
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/menu_items(\?.*)?$/i,
             handler: "NetworkFirst",
+            method: "GET",
             options: {
-              cacheName: "supabase-cache",
+              cacheName: "menu-items-cache",
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24, // 24 hours
+                maxAgeSeconds: 60 * 60 * 6, // 6 hours
+              },
+            },
+          },
+          {
+            // Cache menu images (public bucket)
+            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/menu-images\/.*/i,
+            handler: "CacheFirst",
+            method: "GET",
+            options: {
+              cacheName: "menu-images-cache",
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
               },
             },
           },
