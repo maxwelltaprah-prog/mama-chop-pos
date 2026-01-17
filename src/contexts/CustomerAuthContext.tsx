@@ -65,32 +65,54 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer profile fetch with setTimeout to avoid deadlock
-        if (session?.user) {
+    const hydrateFromSession = async (nextSession: Session | null) => {
+      // We share one auth system for both staff + customers.
+      // Only treat the session as a "customer session" if this user is actually a customer.
+      if (!nextSession?.user) {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        return;
+      }
+
+      try {
+        const userId = nextSession.user.id;
+
+        // SECURITY: determine customer status from backend function, not client storage.
+        const { data: isCustomer, error } = await supabase.rpc('is_customer', { _user_id: userId });
+        if (error) throw error;
+
+        if (isCustomer) {
+          setSession(nextSession);
+          setUser(nextSession.user);
+          // Defer profile fetch with setTimeout to avoid deadlock
           setTimeout(() => {
-            fetchProfile(session.user.id);
+            fetchProfile(userId);
           }, 0);
         } else {
+          // Staff session: Customer context should be "logged out"
+          setSession(null);
+          setUser(null);
           setProfile(null);
         }
+      } catch (e) {
+        console.error('Error determining customer session:', e);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
       }
-    );
+    };
+
+    // Set up auth state listener FIRST
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      hydrateFromSession(nextSession);
+    });
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setLoading(false);
+    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+      hydrateFromSession(existingSession).finally(() => setLoading(false));
     });
 
     return () => subscription.unsubscribe();
