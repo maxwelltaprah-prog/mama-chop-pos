@@ -12,7 +12,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 export default function Auth() {
   const { user: customerUser } = useCustomerAuth();
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading, role } = useAuth();
+  const { signIn, signUp } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,14 +24,14 @@ export default function Auth() {
     fullName: '',
   });
 
-  // Redirect customers away from staff auth page
-  if (customerUser) {
-    return <Navigate to="/order" replace />;
+  // Redirect if already logged in as staff (check role first!)
+  if (user && !loading && role) {
+    return <Navigate to="/" replace />;
   }
 
-  // Redirect if already logged in as staff
-  if (user && !loading) {
-    return <Navigate to="/" replace />;
+  // Redirect customers (non-staff) away from staff auth page
+  if (customerUser && !loading && !role) {
+    return <Navigate to="/order" replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
