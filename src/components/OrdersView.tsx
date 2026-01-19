@@ -1,5 +1,5 @@
 import { useState, forwardRef } from 'react';
-import { Clock, Check, ChefHat, UtensilsCrossed, Package, Search, Printer, Loader2, CreditCard, Banknote, Smartphone, Send, Mail, ExternalLink, Copy } from 'lucide-react';
+import { Clock, Check, ChefHat, UtensilsCrossed, Package, Search, Printer, Loader2, Banknote, Smartphone, Send, ExternalLink, Copy, Trash2, Mail } from 'lucide-react';
 import { formatCurrency, getStatusColor, getPaymentIcon } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { useOrders, useUpdateOrderStatus, useUpdateOrder, OrderStatus, OrderWithItems } from '@/hooks/useOrders';
+import { useOrders, useUpdateOrderStatus, useUpdateOrder, useDeleteOrder, OrderStatus, OrderWithItems } from '@/hooks/useOrders';
+import { useAuth } from '@/contexts/AuthContext';
 import { printReceipt } from '@/lib/printReceipt';
 import {
   Dialog,
@@ -58,6 +59,12 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
   const { data: orders = [], isLoading } = useOrders();
   const updateStatus = useUpdateOrderStatus();
   const updateOrder = useUpdateOrder();
+  const deleteOrder = useDeleteOrder();
+  const { isAdmin } = useAuth();
+  
+  // Delete confirmation state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<OrderWithItems | null>(null);
 
   const filteredOrders = orders.filter(order => {
     const matchesTab = activeTab === 'all' || order.status === activeTab;
@@ -415,6 +422,21 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
                     Complete
                   </Button>
                 )}
+                
+                {/* Delete Button - Admin only */}
+                {isAdmin && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="border-destructive text-destructive hover:bg-destructive/10"
+                    onClick={() => {
+                      setOrderToDelete(order);
+                      setDeleteDialogOpen(true);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -658,6 +680,50 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
               </Button>
             </DialogFooter>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog - Admin only */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5" />
+              Delete Order
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete order <strong>{orderToDelete?.order_number}</strong>? This action cannot be undone and will permanently remove the order and all its items.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setOrderToDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (orderToDelete) {
+                  deleteOrder.mutate(orderToDelete.id);
+                  setDeleteDialogOpen(false);
+                  setOrderToDelete(null);
+                }
+              }}
+              disabled={deleteOrder.isPending}
+            >
+              {deleteOrder.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4 mr-2" />
+              )}
+              Delete Order
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
