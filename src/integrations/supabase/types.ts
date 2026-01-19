@@ -43,6 +43,7 @@ export type Database = {
       }
       menu_items: {
         Row: {
+          accompaniments: Json | null
           addons: Json | null
           available: boolean
           category: string
@@ -56,6 +57,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accompaniments?: Json | null
           addons?: Json | null
           available?: boolean
           category: string
@@ -69,6 +71,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accompaniments?: Json | null
           addons?: Json | null
           available?: boolean
           category?: string

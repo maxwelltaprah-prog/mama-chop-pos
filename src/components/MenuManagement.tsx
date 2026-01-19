@@ -42,6 +42,7 @@ import {
   MenuItemRow,
   MenuItemSize,
   MenuItemAddon,
+  MenuItemAccompaniment,
 } from '@/hooks/useMenuItems';
 
 export function MenuManagement() {
@@ -58,6 +59,9 @@ export function MenuManagement() {
   const [formPrice, setFormPrice] = useState('');
   const [formCategory, setFormCategory] = useState('');
   const [formImageUrl, setFormImageUrl] = useState('');
+  const [formAccompaniments, setFormAccompaniments] = useState<MenuItemAccompaniment[]>([]);
+  const [newAccompanimentName, setNewAccompanimentName] = useState('');
+  const [newAccompanimentPrice, setNewAccompanimentPrice] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   
@@ -94,6 +98,9 @@ export function MenuManagement() {
     setFormPrice('');
     setFormCategory('main');
     setFormImageUrl('');
+    setFormAccompaniments([]);
+    setNewAccompanimentName('');
+    setNewAccompanimentPrice('');
     setImageFile(null);
     setImagePreview(null);
     setDialogOpen(true);
@@ -106,6 +113,9 @@ export function MenuManagement() {
     setFormPrice(String(item.price));
     setFormCategory(item.category);
     setFormImageUrl(item.image_url || '');
+    setFormAccompaniments((item.accompaniments as unknown as MenuItemAccompaniment[]) || []);
+    setNewAccompanimentName('');
+    setNewAccompanimentPrice('');
     setImageFile(null);
     setImagePreview(item.image_url || null);
     setDialogOpen(true);
@@ -145,6 +155,7 @@ export function MenuManagement() {
       price: parseFloat(formPrice),
       category: formCategory,
       image_url: imageUrl || null,
+      accompaniments: formAccompaniments.length > 0 ? JSON.parse(JSON.stringify(formAccompaniments)) : null,
     };
 
     if (editingItem) {
@@ -488,6 +499,61 @@ export function MenuManagement() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Accompaniments */}
+            <div className="space-y-2">
+              <Label>Accompaniments (e.g., Rice, Plantain)</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Name (e.g., Fried Rice)"
+                  value={newAccompanimentName}
+                  onChange={(e) => setNewAccompanimentName(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Price"
+                  value={newAccompanimentPrice}
+                  onChange={(e) => setNewAccompanimentPrice(e.target.value)}
+                  className="w-24"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    if (newAccompanimentName && newAccompanimentPrice) {
+                      setFormAccompaniments([...formAccompaniments, {
+                        name: newAccompanimentName,
+                        price: parseFloat(newAccompanimentPrice)
+                      }]);
+                      setNewAccompanimentName('');
+                      setNewAccompanimentPrice('');
+                    }
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              {formAccompaniments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formAccompaniments.map((acc, index) => (
+                    <Badge key={index} variant="secondary" className="gap-1">
+                      🍚 {acc.name} - {formatCurrency(acc.price)}
+                      <button
+                        type="button"
+                        onClick={() => setFormAccompaniments(formAccompaniments.filter((_, i) => i !== index))}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
