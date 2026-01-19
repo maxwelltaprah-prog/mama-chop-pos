@@ -49,6 +49,24 @@ interface CartItem {
   notes?: string;
 }
 
+function parseAccompaniments(value: unknown): MenuItemAccompaniment[] {
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((a: any) => {
+        const name = typeof a?.name === 'string' ? a.name : '';
+        const price = Number(a?.price);
+        if (!name || !Number.isFinite(price)) return null;
+        return { name, price } as MenuItemAccompaniment;
+      })
+      .filter(Boolean) as MenuItemAccompaniment[];
+  } catch {
+    return [];
+  }
+}
+
 export default function Order() {
   const { user, profile, isAuthenticated, signOut, loading: authLoading } = useCustomerAuth();
   
@@ -184,6 +202,14 @@ export default function Order() {
     setSelectedAddons([]);
     setSelectedAccompaniments([]);
     setItemNotes('');
+
+    // Debug: helps confirm the customer is receiving accompaniments from backend
+    console.debug('[Order] openItemDialog', {
+      id: item.id,
+      name: item.name,
+      accompaniments: item.accompaniments,
+    });
+
     setItemDialogOpen(true);
   };
 
@@ -723,8 +749,8 @@ export default function Order() {
         {/* Menu Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
           {filteredItems.map((item, index) => {
-            const accompaniments = item.accompaniments as unknown as MenuItemAccompaniment[] | null;
-            const hasAccompaniments = accompaniments && accompaniments.length > 0;
+            const accompaniments = parseAccompaniments(item.accompaniments);
+            const hasAccompaniments = accompaniments.length > 0;
             
             return (
               <Card 
@@ -864,32 +890,37 @@ export default function Order() {
                 )}
 
                 {/* Accompaniments */}
-                {selectedItem.accompaniments && Array.isArray(selectedItem.accompaniments) && (selectedItem.accompaniments as unknown as MenuItemAccompaniment[]).length > 0 && (
-                  <div className="space-y-2">
-                    <Label>Accompaniments</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {(selectedItem.accompaniments as unknown as MenuItemAccompaniment[]).map((accompaniment) => {
-                        const isSelected = selectedAccompaniments.some(a => a.name === accompaniment.name);
-                        return (
-                          <Button
-                            key={accompaniment.name}
-                            variant={isSelected ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedAccompaniments(selectedAccompaniments.filter(a => a.name !== accompaniment.name));
-                              } else {
-                                setSelectedAccompaniments([...selectedAccompaniments, accompaniment]);
-                              }
-                            }}
-                          >
-                            🍚 {accompaniment.name} (+{formatCurrency(accompaniment.price)})
-                          </Button>
-                        );
-                      })}
+                {(() => {
+                  const accompaniments = parseAccompaniments(selectedItem.accompaniments);
+                  if (accompaniments.length === 0) return null;
+
+                  return (
+                    <div className="space-y-2">
+                      <Label>Accompaniments</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {accompaniments.map((accompaniment) => {
+                          const isSelected = selectedAccompaniments.some(a => a.name === accompaniment.name);
+                          return (
+                            <Button
+                              key={accompaniment.name}
+                              variant={isSelected ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedAccompaniments(selectedAccompaniments.filter(a => a.name !== accompaniment.name));
+                                } else {
+                                  setSelectedAccompaniments([...selectedAccompaniments, accompaniment]);
+                                }
+                              }}
+                            >
+                              🍚 {accompaniment.name} (+{formatCurrency(accompaniment.price)})
+                            </Button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Notes */}
                 <div className="space-y-2">
