@@ -17,6 +17,11 @@ export interface MenuItemAddon {
   price: number;
 }
 
+export interface MenuItemAccompaniment {
+  name: string;
+  price: number;
+}
+
 export function useMenuItems() {
   return useQuery({
     queryKey: ['menu-items'],

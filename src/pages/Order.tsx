@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin, Loader2, CreditCard, History, Home, Download, User, LogOut } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { saveOrderToHistory } from './OrderHistory';
-import { useMenuItems, MenuItemRow, MenuItemSize, MenuItemAddon } from '@/hooks/useMenuItems';
+import { useMenuItems, MenuItemRow, MenuItemSize, MenuItemAddon, MenuItemAccompaniment } from '@/hooks/useMenuItems';
 import { useCreateCustomerOrder } from '@/hooks/useOrders';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { formatCurrency, categories } from '@/lib/data';
@@ -45,6 +45,7 @@ interface CartItem {
   quantity: number;
   selectedSize?: MenuItemSize;
   selectedAddons: MenuItemAddon[];
+  selectedAccompaniments: MenuItemAccompaniment[];
   notes?: string;
 }
 
@@ -59,6 +60,7 @@ export default function Order() {
   const [selectedItem, setSelectedItem] = useState<MenuItemRow | null>(null);
   const [selectedSize, setSelectedSize] = useState<MenuItemSize | undefined>();
   const [selectedAddons, setSelectedAddons] = useState<MenuItemAddon[]>([]);
+  const [selectedAccompaniments, setSelectedAccompaniments] = useState<MenuItemAccompaniment[]>([]);
   const [itemNotes, setItemNotes] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -160,7 +162,8 @@ export default function Order() {
     return cart.reduce((total, item) => {
       const basePrice = item.selectedSize?.price ?? Number(item.menuItem.price);
       const addonsPrice = item.selectedAddons.reduce((sum, addon) => sum + addon.price, 0);
-      return total + (basePrice + addonsPrice) * item.quantity;
+      const accompanimentsPrice = item.selectedAccompaniments.reduce((sum, acc) => sum + acc.price, 0);
+      return total + (basePrice + addonsPrice + accompanimentsPrice) * item.quantity;
     }, 0);
   }, [cart]);
 
@@ -179,6 +182,7 @@ export default function Order() {
     const sizes = item.sizes as unknown as MenuItemSize[] | null;
     setSelectedSize(sizes?.[0]);
     setSelectedAddons([]);
+    setSelectedAccompaniments([]);
     setItemNotes('');
     setItemDialogOpen(true);
   };
@@ -189,7 +193,8 @@ export default function Order() {
     const existingIndex = cart.findIndex(
       ci => ci.menuItem.id === selectedItem.id && 
            ci.selectedSize?.name === selectedSize?.name &&
-           JSON.stringify(ci.selectedAddons) === JSON.stringify(selectedAddons)
+           JSON.stringify(ci.selectedAddons) === JSON.stringify(selectedAddons) &&
+           JSON.stringify(ci.selectedAccompaniments) === JSON.stringify(selectedAccompaniments)
     );
 
     if (existingIndex >= 0) {
@@ -203,6 +208,7 @@ export default function Order() {
         quantity: 1,
         selectedSize,
         selectedAddons,
+        selectedAccompaniments,
         notes: itemNotes || undefined,
       }]);
     }
@@ -249,7 +255,8 @@ export default function Order() {
       const orderItems = cart.map((item) => {
         const basePrice = item.selectedSize?.price ?? Number(item.menuItem.price);
         const addonsPrice = item.selectedAddons.reduce((sum, addon) => sum + addon.price, 0);
-        const unitPrice = basePrice + addonsPrice;
+        const accompanimentsPrice = item.selectedAccompaniments.reduce((sum, acc) => sum + acc.price, 0);
+        const unitPrice = basePrice + addonsPrice + accompanimentsPrice;
 
         return {
           menu_item_id: item.menuItem.id,
@@ -294,7 +301,9 @@ export default function Order() {
             quantity: item.quantity,
             price:
               (item.selectedSize?.price ??
-                Number(item.menuItem.price) + item.selectedAddons.reduce((sum, a) => sum + a.price, 0)) *
+                Number(item.menuItem.price) + 
+                item.selectedAddons.reduce((sum, a) => sum + a.price, 0) +
+                item.selectedAccompaniments.reduce((sum, a) => sum + a.price, 0)) *
               item.quantity,
           })),
           createdAt: new Date().toISOString(),
@@ -573,7 +582,8 @@ export default function Order() {
                         {cart.map((item, index) => {
                           const basePrice = item.selectedSize?.price ?? Number(item.menuItem.price);
                           const addonsPrice = item.selectedAddons.reduce((sum, addon) => sum + addon.price, 0);
-                          const itemTotal = (basePrice + addonsPrice) * item.quantity;
+                          const accompanimentsPrice = item.selectedAccompaniments.reduce((sum, acc) => sum + acc.price, 0);
+                          const itemTotal = (basePrice + addonsPrice + accompanimentsPrice) * item.quantity;
 
                           return (
                             <Card key={index} className="overflow-hidden">
@@ -598,6 +608,11 @@ export default function Order() {
                                     {item.selectedAddons.length > 0 && (
                                       <p className="text-xs text-muted-foreground">
                                         +{item.selectedAddons.map(a => a.name).join(', ')}
+                                      </p>
+                                    )}
+                                    {item.selectedAccompaniments.length > 0 && (
+                                      <p className="text-xs text-primary/80">
+                                        🍚 {item.selectedAccompaniments.map(a => a.name).join(', ')}
                                       </p>
                                     )}
                                     <p className="font-semibold text-primary mt-1">{formatCurrency(itemTotal)}</p>
@@ -825,6 +840,34 @@ export default function Order() {
                   </div>
                 )}
 
+                {/* Accompaniments */}
+                {selectedItem.accompaniments && Array.isArray(selectedItem.accompaniments) && (selectedItem.accompaniments as unknown as MenuItemAccompaniment[]).length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Accompaniments</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {(selectedItem.accompaniments as unknown as MenuItemAccompaniment[]).map((accompaniment) => {
+                        const isSelected = selectedAccompaniments.some(a => a.name === accompaniment.name);
+                        return (
+                          <Button
+                            key={accompaniment.name}
+                            variant={isSelected ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedAccompaniments(selectedAccompaniments.filter(a => a.name !== accompaniment.name));
+                              } else {
+                                setSelectedAccompaniments([...selectedAccompaniments, accompaniment]);
+                              }
+                            }}
+                          >
+                            🍚 {accompaniment.name} (+{formatCurrency(accompaniment.price)})
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Notes */}
                 <div className="space-y-2">
                   <Label htmlFor="notes">Special Instructions</Label>
@@ -846,7 +889,8 @@ export default function Order() {
                   <Plus className="w-4 h-4 mr-2" />
                   Add to Cart - {formatCurrency(
                     (selectedSize?.price ?? Number(selectedItem.price)) +
-                    selectedAddons.reduce((sum, a) => sum + a.price, 0)
+                    selectedAddons.reduce((sum, a) => sum + a.price, 0) +
+                    selectedAccompaniments.reduce((sum, a) => sum + a.price, 0)
                   )}
                 </Button>
               </DialogFooter>
