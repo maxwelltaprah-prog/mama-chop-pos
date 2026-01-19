@@ -722,41 +722,64 @@ export default function Order() {
 
         {/* Menu Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
-          {filteredItems.map((item, index) => (
-            <Card 
-              key={item.id}
-              className="overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in"
-              style={{ animationDelay: `${index * 30}ms` }}
-              onClick={() => openItemDialog(item)}
-            >
-              <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
-                {item.image_url ? (
-                  <img 
-                    src={item.image_url} 
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-5xl">{getCategoryIcon(item.category)}</span>
-                )}
-              </div>
-              <CardContent className="p-2 sm:p-4">
-                <h3 className="font-semibold text-sm sm:text-base line-clamp-1">{item.name}</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1 sm:line-clamp-2 mb-1 sm:mb-2">{item.description}</p>
-                <div className="flex items-center justify-between">
-                  <p className="font-bold text-primary text-sm sm:text-base">{formatCurrency(Number(item.price))}</p>
-                  <Button 
-                    size="icon" 
-                    variant="outline" 
-                    className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3 rounded-full sm:rounded-md"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span className="hidden sm:inline ml-1">Add</span>
-                  </Button>
+          {filteredItems.map((item, index) => {
+            const accompaniments = item.accompaniments as unknown as MenuItemAccompaniment[] | null;
+            const hasAccompaniments = accompaniments && accompaniments.length > 0;
+            
+            return (
+              <Card 
+                key={item.id}
+                className="overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300 animate-fade-in"
+                style={{ animationDelay: `${index * 30}ms` }}
+                onClick={() => openItemDialog(item)}
+              >
+                <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
+                  {item.image_url ? (
+                    <img 
+                      src={item.image_url} 
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-5xl">{getCategoryIcon(item.category)}</span>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+                <CardContent className="p-2 sm:p-4">
+                  <h3 className="font-semibold text-sm sm:text-base line-clamp-1">{item.name}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1 sm:line-clamp-2 mb-1">{item.description}</p>
+                  
+                  {/* Show available accompaniments */}
+                  {hasAccompaniments && (
+                    <div className="mb-1 sm:mb-2">
+                      <p className="text-xs text-primary/80 line-clamp-1">
+                        🍚 {accompaniments.slice(0, 3).map(a => a.name).join(', ')}
+                        {accompaniments.length > 3 && ` +${accompaniments.length - 3} more`}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-primary text-sm sm:text-base">{formatCurrency(Number(item.price))}</p>
+                      {hasAccompaniments && (
+                        <p className="text-xs text-muted-foreground">
+                          +sides from {formatCurrency(Math.min(...accompaniments.map(a => a.price)))}
+                        </p>
+                      )}
+                    </div>
+                    <Button 
+                      size="icon" 
+                      variant="outline" 
+                      className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3 rounded-full sm:rounded-md"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span className="hidden sm:inline ml-1">Add</span>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {filteredItems.length === 0 && (
