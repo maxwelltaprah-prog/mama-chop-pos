@@ -1046,6 +1046,41 @@ export default function Order() {
               </div>
             )}
 
+            {/* Order Summary */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <h4 className="font-medium text-sm">Order Summary</h4>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {cart.map((item, index) => {
+                  const basePrice = item.selectedSize?.price ?? Number(item.menuItem.price);
+                  const addonsPrice = item.selectedAddons.reduce((sum, a) => sum + a.price, 0);
+                  const accompanimentsPrice = item.selectedAccompaniments.reduce((sum, a) => sum + a.price, 0);
+                  const itemTotal = (basePrice + addonsPrice + accompanimentsPrice) * item.quantity;
+                  
+                  return (
+                    <div key={index} className="text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0">
+                      <div className="flex justify-between">
+                        <span className="font-medium">
+                          {item.quantity}x {item.menuItem.name}
+                          {item.selectedSize && <span className="text-muted-foreground"> ({item.selectedSize.name})</span>}
+                        </span>
+                        <span>{formatCurrency(itemTotal)}</span>
+                      </div>
+                      {item.selectedAddons.length > 0 && (
+                        <p className="text-xs text-muted-foreground pl-4">
+                          + {item.selectedAddons.map(a => `${a.name} (${formatCurrency(a.price)})`).join(', ')}
+                        </p>
+                      )}
+                      {item.selectedAccompaniments.length > 0 && (
+                        <p className="text-xs text-primary/80 pl-4">
+                          🍚 {item.selectedAccompaniments.map(a => `${a.name} (+${formatCurrency(a.price)})`).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="bg-muted rounded-lg p-4 space-y-2">
               <div className="flex justify-between">
                 <span>Subtotal</span>
