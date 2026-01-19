@@ -701,7 +701,7 @@ export function POSView() {
           <DialogHeader>
             <DialogTitle className="text-xl font-display">Send Payment Link</DialogTitle>
             <DialogDescription>
-              Generate a payment link for customer to pay via Mobile Money or Card
+              Generate a payment link for customer to pay via Mobile Money
             </DialogDescription>
           </DialogHeader>
           
