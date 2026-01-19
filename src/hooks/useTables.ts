@@ -2,13 +2,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
+import { useEffect } from 'react';
 
 export type TableRow = Tables<'restaurant_tables'>;
 export type TableInsert = TablesInsert<'restaurant_tables'>;
 export type TableUpdate = TablesUpdate<'restaurant_tables'>;
 
 export function useTables() {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: ['restaurant-tables'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -20,6 +23,22 @@ export function useTables() {
       return data;
     },
   });
+
+  // Subscribe to realtime updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('tables-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['restaurant-tables'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  return query;
 }
 
 export function useCreateTable() {
