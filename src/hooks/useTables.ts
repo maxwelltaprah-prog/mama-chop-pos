@@ -51,15 +51,12 @@ export function useUpdateTable() {
   
   return useMutation({
     mutationFn: async ({ id, ...updates }: TableUpdate & { id: string }) => {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('restaurant_tables')
         .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
+        .eq('id', id);
       
       if (error) throw error;
-      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['restaurant-tables'] });
