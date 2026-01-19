@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, X, User, MapPin, Check, Phone, Printer, Loader2, Send, Mail, ExternalLink, Copy } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingCart, Banknote, X, User, MapPin, Check, Phone, Printer, Loader2, Send, Mail, ExternalLink, Copy, Smartphone } from 'lucide-react';
 import { formatCurrency } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -467,8 +467,8 @@ export function POSView() {
               className="h-14 text-base font-semibold"
               onClick={handleOnlinePayment}
             >
-              <CreditCard className="w-5 h-5 mr-2" />
-              MoMo/Card
+              <Smartphone className="w-5 h-5 mr-2" />
+              MoMo
             </Button>
           </div>
         </div>

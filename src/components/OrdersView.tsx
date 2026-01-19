@@ -39,7 +39,6 @@ const filterTabs: { id: string; label: string; status?: OrderStatus }[] = [
 const paymentMethods = [
   { id: 'cash', label: 'Cash', icon: Banknote },
   { id: 'momo', label: 'Mobile Money', icon: Smartphone },
-  { id: 'card', label: 'Card', icon: CreditCard },
 ];
 
 export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
@@ -383,7 +382,7 @@ export const OrdersView = forwardRef<HTMLDivElement>((_, ref) => {
                       onClick={() => openOnlinePaymentDialog(order)}
                     >
                       <Send className="w-4 h-4 mr-2" />
-                      MoMo/Card
+                      MoMo
                     </Button>
                   </>
                 )}
