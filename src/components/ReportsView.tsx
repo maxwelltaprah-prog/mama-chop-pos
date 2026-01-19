@@ -341,7 +341,7 @@ export const ReportsView = forwardRef<HTMLDivElement>((_, ref) => {
             ) : (
               <div className="space-y-3">
                 {Object.entries(stats?.paymentBreakdown || {}).map(([method, data]) => {
-                  const methodInfo = paymentMethodLabels[method] || { label: method, emoji: '💳', colorClass: 'muted' };
+                  const methodInfo = paymentMethodLabels[method] || { label: method, emoji: '📱', colorClass: 'muted' };
                   return (
                     <div 
                       key={method}
