@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin, Loader2, CreditCard, History, Home, Download, User, LogOut } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Send, ChefHat, Search, MapPin, Loader2, Smartphone, History, Home, Download, User, LogOut } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { saveOrderToHistory } from './OrderHistory';
 import { useMenuItems, MenuItemRow, MenuItemSize, MenuItemAddon, MenuItemAccompaniment } from '@/hooks/useMenuItems';
@@ -89,7 +89,7 @@ export default function Order() {
   const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'online' | 'momo' | 'cash_on_delivery'>('cash_on_delivery');
+  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'cash_on_delivery'>('cash_on_delivery');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [customerEmail, setCustomerEmail] = useState('');
 
@@ -262,7 +262,7 @@ export default function Order() {
     if (cart.length === 0) return;
 
     // Validate email for online payments
-    if ((paymentMethod === 'online' || paymentMethod === 'momo') && !customerEmail.trim()) {
+    if (paymentMethod === 'momo' && !customerEmail.trim()) {
       toast.error('Please enter your email for online payment');
       return;
     }
@@ -1016,8 +1016,8 @@ export default function Order() {
               />
             </div>
 
-            {/* Email for online payments */}
-            {(paymentMethod === 'online' || paymentMethod === 'momo') && (
+            {/* Email for Mobile Money payments */}
+            {paymentMethod === 'momo' && (
               <div className="space-y-2">
                 <Label htmlFor="customerEmail">Email Address *</Label>
                 <Input
@@ -1125,7 +1125,7 @@ export default function Order() {
                 <span>Total</span>
                 <span>{formatCurrency(cartTotal * 1.15)}</span>
               </div>
-              {(paymentMethod === 'online' || paymentMethod === 'momo') && orderType === 'takeaway' && (
+              {paymentMethod === 'momo' && orderType === 'takeaway' && (
                 <p className="text-xs text-success flex items-center gap-1 pt-1">
                   <span>✓</span> Payment will be recorded automatically
                 </p>
@@ -1159,9 +1159,9 @@ export default function Order() {
                 </span>
               ) : (
                 <>
-                  {(paymentMethod === 'momo' || paymentMethod === 'online') && (orderType !== 'dine-in') ? (
+                  {paymentMethod === 'momo' && (orderType !== 'dine-in') ? (
                     <>
-                      <CreditCard className="w-4 h-4 mr-2" />
+                      <Smartphone className="w-4 h-4 mr-2" />
                       Pay {formatCurrency(cartTotal * 1.15)}
                     </>
                   ) : (
