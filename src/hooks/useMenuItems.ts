@@ -35,6 +35,8 @@ export function useMenuItems() {
       if (error) throw error;
       return data;
     },
+    staleTime: 0, // Always refetch to get latest accompaniments
+    refetchOnMount: true,
   });
 }
 
