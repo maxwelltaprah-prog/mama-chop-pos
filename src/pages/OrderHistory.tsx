@@ -86,8 +86,7 @@ export default function OrderHistory() {
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
       case 'momo': return '📱 Mobile Money';
-      case 'card': return '💳 Card';
-      case 'online': return '💳 Card';
+      case 'mtn-momo': return '📱 Mobile Money';
       case 'cash': return '💵 Cash';
       default: return method;
     }

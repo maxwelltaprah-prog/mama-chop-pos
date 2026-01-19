@@ -948,7 +948,7 @@ export default function Order() {
             {orderType === 'takeaway' && (
               <div className="space-y-2">
                 <Label>Payment Method</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('momo')}
@@ -961,19 +961,6 @@ export default function Order() {
                     <span className="text-xl">📱</span>
                     <span className="text-sm font-medium">Mobile Money</span>
                     <span className="text-xs text-muted-foreground">MTN, Voda, AT</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('online')}
-                    className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
-                      paymentMethod === 'online' 
-                        ? 'border-primary bg-primary/10' 
-                        : 'border-muted hover:border-primary/50'
-                    }`}
-                  >
-                    <span className="text-xl">💳</span>
-                    <span className="text-sm font-medium">Card</span>
-                    <span className="text-xs text-muted-foreground">Pay online</span>
                   </button>
                   <button
                     type="button"
