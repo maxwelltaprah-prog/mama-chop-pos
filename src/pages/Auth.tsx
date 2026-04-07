@@ -177,27 +177,7 @@ export default function Auth() {
                 )}
               </Button>
 
-              {/* Demo Credentials */}
-              <Alert className="mt-4">
-                <Info className="h-4 w-4" />
-                <AlertDescription className="text-xs">
-                  <strong>Demo Admin:</strong> demo@chopbar.com / demo1234
-                </AlertDescription>
-              </Alert>
             </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                {isLogin ? "Don't have an account?" : 'Already have an account?'}
-                <button
-                  type="button"
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="ml-1 text-primary font-semibold hover:underline"
-                >
-                  {isLogin ? 'Sign up' : 'Sign in'}
-                </button>
-              </p>
-            </div>
           </CardContent>
         </Card>
 
