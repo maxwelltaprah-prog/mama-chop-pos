@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
 import { Navigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, User, Mail, Lock, ChefHat, Info } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ChefHat } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Auth() {
   const { user: customerUser } = useCustomerAuth();
   const { user, loading, role } = useAuth();
   const { signIn, signUp } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -86,35 +86,11 @@ export default function Auth() {
 
         <Card className="border-2 shadow-xl">
           <CardHeader className="text-center pb-4">
-            <CardTitle className="text-2xl font-display">
-              {isLogin ? 'Welcome Back' : 'Create Account'}
-            </CardTitle>
-            <CardDescription>
-              {isLogin 
-                ? 'Sign in to access your dashboard' 
-                : 'Register to get started with Eidikos Kouzina'}
-            </CardDescription>
+            <CardTitle className="text-2xl font-display">Welcome Back</CardTitle>
+            <CardDescription>Sign in to access your dashboard</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="fullName" className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    Full Name
-                  </Label>
-                  <Input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    placeholder="Enter your full name"
-                    value={formData.fullName}
-                    onChange={handleChange}
-                    required={!isLogin}
-                    className="h-12"
-                  />
-                </div>
-              )}
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-2">
@@ -170,34 +146,14 @@ export default function Auth() {
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
                     <span className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    {isLogin ? 'Signing in...' : 'Creating account...'}
+                    Signing in...
                   </span>
                 ) : (
-                  isLogin ? 'Sign In' : 'Create Account'
+                  'Sign In'
                 )}
               </Button>
 
-              {/* Demo Credentials */}
-              <Alert className="mt-4">
-                <Info className="h-4 w-4" />
-                <AlertDescription className="text-xs">
-                  <strong>Demo Admin:</strong> demo@chopbar.com / demo1234
-                </AlertDescription>
-              </Alert>
             </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                {isLogin ? "Don't have an account?" : 'Already have an account?'}
-                <button
-                  type="button"
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="ml-1 text-primary font-semibold hover:underline"
-                >
-                  {isLogin ? 'Sign up' : 'Sign in'}
-                </button>
-              </p>
-            </div>
           </CardContent>
         </Card>
 
