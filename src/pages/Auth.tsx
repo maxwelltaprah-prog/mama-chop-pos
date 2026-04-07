@@ -14,7 +14,7 @@ export default function Auth() {
   const { user: customerUser } = useCustomerAuth();
   const { user, loading, role } = useAuth();
   const { signIn, signUp } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
