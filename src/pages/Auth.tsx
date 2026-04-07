@@ -86,35 +86,11 @@ export default function Auth() {
 
         <Card className="border-2 shadow-xl">
           <CardHeader className="text-center pb-4">
-            <CardTitle className="text-2xl font-display">
-              {isLogin ? 'Welcome Back' : 'Create Account'}
-            </CardTitle>
-            <CardDescription>
-              {isLogin 
-                ? 'Sign in to access your dashboard' 
-                : 'Register to get started with Eidikos Kouzina'}
-            </CardDescription>
+            <CardTitle className="text-2xl font-display">Welcome Back</CardTitle>
+            <CardDescription>Sign in to access your dashboard</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="fullName" className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    Full Name
-                  </Label>
-                  <Input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    placeholder="Enter your full name"
-                    value={formData.fullName}
-                    onChange={handleChange}
-                    required={!isLogin}
-                    className="h-12"
-                  />
-                </div>
-              )}
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="flex items-center gap-2">
